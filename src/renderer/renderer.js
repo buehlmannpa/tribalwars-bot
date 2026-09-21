@@ -3,6 +3,7 @@
 // Oberflaeche. Sie haelt keinen eigenen Zustand, sondern spiegelt immer das,
 // was der Hauptprozess als Wahrheit fuehrt.
 let state = { config: null, status: null };
+const selected = new Set();
 
 const $ = (id) => document.getElementById(id);
 
@@ -43,14 +44,18 @@ function renderVillages() {
   const body = document.querySelector('#villageTable tbody');
   const villages = Object.values(state.config.villages);
   body.innerHTML = '';
+  for (const id of [...selected]) if (!state.config.villages[id]) selected.delete(id);
   if (!villages.length) {
     const row = document.createElement('tr');
-    row.innerHTML = '<td colspan="7" class="muted">Noch keine Doerfer. Melde dich im Spielfenster an und klicke auf Doerfer einlesen.</td>';
+    row.innerHTML = '<td colspan="8" class="muted">Noch keine Doerfer. Melde dich im Spielfenster an und klicke auf Doerfer einlesen.</td>';
     body.appendChild(row);
+    renderSelectionCount();
     return;
   }
   for (const village of villages.sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
     const row = document.createElement('tr');
+    if (selected.has(village.id)) row.classList.add('selected');
+    row.appendChild(tickCell(village, row));
     row.appendChild(cell(village.name || village.id));
     row.appendChild(cell(village.coords || ''));
     row.appendChild(selectCell(Object.keys(state.config.buildTemplates), village.buildTemplate, (value) => {
@@ -64,6 +69,37 @@ function renderVillages() {
     row.appendChild(cell(village.lastRun ? new Date(village.lastRun).toLocaleTimeString('de-CH') : 'noch nie'));
     body.appendChild(row);
   }
+  renderSelectionCount();
+}
+
+// Auswahl fuer die Sammelzuweisung
+function tickCell(village, row) {
+  const td = document.createElement('td');
+  td.className = 'tick';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.checked = selected.has(village.id);
+  input.addEventListener('change', () => {
+    if (input.checked) selected.add(village.id); else selected.delete(village.id);
+    row.classList.toggle('selected', input.checked);
+    renderSelectionCount();
+  });
+  td.appendChild(input);
+  return td;
+}
+
+function renderSelectionCount() {
+  const count = selected.size;
+  $('selCount').textContent = count === 1 ? '1 Dorf ausgewaehlt' : `${count} Doerfer ausgewaehlt`;
+  const all = Object.keys(state.config.villages);
+  $('selAll').checked = all.length > 0 && count === all.length;
+}
+
+async function assignToSelection(patch, was) {
+  if (!selected.size) return;
+  state.config = await window.api.invoke('villages:assign', { ids: [...selected], patch });
+  renderVillages();
+  appendLog({ ts: Date.now(), level: 'info', message: `${was} fuer ${selected.size} Doerfer gesetzt` });
 }
 
 function cell(text) {
@@ -103,8 +139,18 @@ async function update(id, patch) {
 function renderTemplateLists() {
   fillSelect($('buildSelect'), Object.keys(state.config.buildTemplates));
   fillSelect($('troopSelect'), Object.keys(state.config.troopTemplates));
+  fillAssign($('assignBuild'), Object.keys(state.config.buildTemplates));
+  fillAssign($('assignTroop'), Object.keys(state.config.troopTemplates));
   loadBuildTemplate();
   loadTroopTemplate();
+}
+
+function fillAssign(select, names) {
+  const current = select.value;
+  select.innerHTML = '';
+  select.appendChild(new Option('keine Vorlage', ''));
+  for (const name of names) select.appendChild(new Option(name, name));
+  if (current) select.value = current;
 }
 
 function fillSelect(select, names) {
@@ -119,6 +165,7 @@ function loadBuildTemplate() {
   const template = state.config.buildTemplates[name] || [];
   $('buildName').value = name || '';
   $('buildBody').value = template.map(([key, level]) => `${key} ${level}`).join('\n');
+  $('buildCount').textContent = `${template.length} Auftraege`;
 }
 
 function loadTroopTemplate() {
@@ -126,14 +173,30 @@ function loadTroopTemplate() {
   const template = state.config.troopTemplates[name] || {};
   $('troopName').value = name || '';
   $('troopBody').value = Object.entries(template).map(([key, amount]) => `${key} ${amount}`).join('\n');
+  $('troopCount').textContent = `${Object.keys(template).length} Einheiten`;
 }
 
-const BUILD_KEYS = 'main barracks stable garage church snob smith place statue market wood stone iron farm storage hide wall watchtower';
-const UNIT_KEYS = 'spear sword axe archer spy light marcher heavy ram catapult';
+const BUILD_KEYS = [
+  ['main', 'Hauptgebaeude'], ['barracks', 'Kaserne'], ['stable', 'Stall'], ['garage', 'Werkstatt'],
+  ['church', 'Kirche'], ['snob', 'Adelshof'], ['smith', 'Schmiede'], ['place', 'Versammlungsplatz'],
+  ['statue', 'Statue'], ['market', 'Marktplatz'], ['wood', 'Holzfaeller'], ['stone', 'Lehmgrube'],
+  ['iron', 'Eisenmine'], ['farm', 'Bauernhof'], ['storage', 'Speicher'], ['hide', 'Versteck'],
+  ['wall', 'Wall'], ['watchtower', 'Wachturm']
+];
+const UNIT_KEYS = [
+  ['spear', 'Speertraeger'], ['sword', 'Schwertkaempfer'], ['axe', 'Axtkaempfer'],
+  ['archer', 'Bogenschuetze'], ['spy', 'Spaeher'], ['light', 'Leichte Kavallerie'],
+  ['marcher', 'Berittener Bogenschuetze'], ['heavy', 'Schwere Kavallerie'],
+  ['ram', 'Ramme'], ['catapult', 'Katapult']
+];
 
 function renderKeyHints() {
-  $('buildKeys').textContent = 'Gueltige Gebaeude: ' + BUILD_KEYS;
-  $('troopKeys').textContent = 'Gueltige Einheiten: ' + UNIT_KEYS;
+  if (!$('buildPickKey').options.length) {
+    for (const [key, name] of BUILD_KEYS) $('buildPickKey').appendChild(new Option(`${name} (${key})`, key));
+    for (const [key, name] of UNIT_KEYS) $('troopPickKey').appendChild(new Option(`${name} (${key})`, key));
+  }
+  $('buildKeys').textContent = 'Gueltige Gebaeude: ' + BUILD_KEYS.map(([k]) => k).join(' ');
+  $('troopKeys').textContent = 'Gueltige Einheiten: ' + UNIT_KEYS.map(([k]) => k).join(' ');
 }
 
 function renderSettings() {
@@ -262,6 +325,58 @@ for (const id of ['host', 'minDelay', 'maxDelay', 'maxActions', 'cooldown', 'kee
   'pauseIncoming', 'keepAwake', 'nightEnabled', 'nightStart', 'nightEnd']) {
   $(id).addEventListener('change', saveSettings);
 }
+
+// Sammelzuweisung
+$('selAll').addEventListener('change', () => {
+  selected.clear();
+  if ($('selAll').checked) for (const id of Object.keys(state.config.villages)) selected.add(id);
+  renderVillages();
+});
+$('btnAssignBuild').addEventListener('click', () =>
+  assignToSelection({ buildTemplate: $('assignBuild').value || null }, 'Bauvorlage'));
+$('btnAssignTroop').addEventListener('click', () =>
+  assignToSelection({ troopTemplate: $('assignTroop').value || null }, 'Truppenvorlage'));
+$('btnActivate').addEventListener('click', () =>
+  assignToSelection({ buildActive: true, troopActive: true }, 'Automatik aktiv'));
+$('btnDeactivate').addEventListener('click', () =>
+  assignToSelection({ buildActive: false, troopActive: false }, 'Automatik pausiert'));
+
+// Vorlagen verwalten
+$('btnNewBuild').addEventListener('click', () => {
+  $('buildName').value = '';
+  $('buildBody').value = '';
+  $('buildCount').textContent = 'neue Vorlage';
+  $('buildName').focus();
+});
+$('btnCopyBuild').addEventListener('click', () => {
+  $('buildName').value = ($('buildSelect').value || 'Vorlage') + ' Kopie';
+  $('buildCount').textContent = 'Kopie, noch nicht gespeichert';
+  $('buildName').focus();
+});
+$('btnAddOrder').addEventListener('click', () => {
+  const line = `${$('buildPickKey').value} ${Number($('buildPickLevel').value)}`;
+  const body = $('buildBody');
+  body.value = body.value.trim() ? `${body.value.replace(/\n+$/, '')}\n${line}` : line;
+  body.scrollTop = body.scrollHeight;
+});
+$('btnNewTroop').addEventListener('click', () => {
+  $('troopName').value = '';
+  $('troopBody').value = '';
+  $('troopCount').textContent = 'neue Vorlage';
+  $('troopName').focus();
+});
+$('btnCopyTroop').addEventListener('click', () => {
+  $('troopName').value = ($('troopSelect').value || 'Vorlage') + ' Kopie';
+  $('troopCount').textContent = 'Kopie, noch nicht gespeichert';
+  $('troopName').focus();
+});
+$('btnAddUnit').addEventListener('click', () => {
+  const key = $('troopPickKey').value;
+  const amount = Number($('troopPickAmount').value);
+  const lines = $('troopBody').value.split('\n').filter((l) => l.trim() && l.trim().split(/\s+/)[0] !== key);
+  lines.push(`${key} ${amount}`);
+  $('troopBody').value = lines.join('\n');
+});
 
 window.api.on('status', renderStatus);
 window.api.on('log', appendLog);

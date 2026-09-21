@@ -17,13 +17,16 @@ des Master Accounts. Der Entscheid liegt bei dir.
 1. Eigenes Spielfenster mit dauerhaft gespeicherter Anmeldung, du kannst darin
    jederzeit selbst spielen und eingreifen.
 2. Doerfer aus der Produktionsuebersicht einlesen.
-3. Bauvorlagen je Dorf abarbeiten, inklusive der Auftraege, die bereits in der
+3. Beliebig viele Bau und Truppenplaene anlegen, duplizieren und bearbeiten,
+   danach in der Dorfliste mehreren Doerfern auf einmal zuweisen.
+4. Bauvorlagen je Dorf abarbeiten, inklusive der Auftraege, die bereits in der
    Bauschleife stehen.
-4. Truppenvorlagen je Dorf abarbeiten, in Paketen und mit Bauernhof Puffer.
-5. Sicherungen: Erkennung von Botschutz und abgelaufener Sitzung mit sofortigem
+5. Truppenvorlagen je Dorf abarbeiten, in Paketen, mit Rohstoffpuffer und
+   Bauernhof Puffer, Vorrang gegenueber dem Bauplan einstellbar.
+6. Sicherungen: Erkennung von Botschutz und abgelaufener Sitzung mit sofortigem
    Halt und Mitteilung, zufaellige Abstaende, Aktionslimite pro Stunde,
    optionale Nachtpause, Ueberspringen bei eingehenden Angriffen.
-6. Seitenabzug auf die Platte, um Auswahlpfade gegen die echte Welt zu pruefen.
+7. Seitenabzug auf die Platte, um Auswahlpfade gegen die echte Welt zu pruefen.
 
 Noch nicht enthalten sind Rohstoffausgleich, Muenzpraegung, Farmen, Raubzuege
 und Angriffsplanung.
@@ -49,7 +52,9 @@ xattr -dr com.apple.quarantine "/Applications/Staemme Manager.app"
 1. App per Doppelklick starten. Es oeffnen sich das Dashboard und das Spielfenster.
 2. Im Spielfenster bei der Welt anmelden. Die Anmeldung bleibt gespeichert.
 3. Im Dashboard auf Doerfer einlesen klicken.
-4. Je Dorf eine Bauvorlage und eine Truppenvorlage waehlen und die Haken setzen.
+4. Unter Vorlagen die gewuenschten Plaene anlegen. Danach in der Dorfliste die
+   Doerfer ankreuzen und ueber die Leiste oben den Bau und den Truppenplan
+   zuweisen, wahlweise fuer ein einzelnes Dorf oder fuer viele auf einmal.
 5. Unter Einstellungen den Takt pruefen und danach auf Automatik starten klicken.
 
 ## Tests

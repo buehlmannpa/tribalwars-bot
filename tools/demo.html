@@ -123,6 +123,22 @@
   table.units { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--mono); }
   table.units td { padding: 3px 0; }
   table.units td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .assignbar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 16px; font-size: 13px;
+  }
+  .assignbar select { width: auto; min-width: 150px; margin-top: 0; }
+  .assignbar .count { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .village.picked { box-shadow: inset 3px 0 0 var(--accent); padding-left: 12px; }
+  .vpick { margin-right: 4px; }
+  .maker { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: end; }
+  .maker input[type="text"] {
+    font: inherit; font-size: 13px; width: 100%; margin-top: 4px; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); color: var(--ink);
+  }
+  .plan { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 8px 0 0;
+    max-height: 90px; overflow-y: auto; line-height: 1.6; }
 </style>
 
 <div class="wrap">
@@ -153,6 +169,16 @@
     <div>
       <section class="card">
         <h2>Dörfer</h2>
+        <div class="assignbar">
+          <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;color:var(--ink)">
+            <input type="checkbox" id="pickAll"> alle
+          </label>
+          <select id="assignBuild"></select>
+          <button id="doAssignBuild">Bauplan zuweisen</button>
+          <select id="assignTroop"></select>
+          <button id="doAssignTroop">Truppenplan zuweisen</button>
+          <span class="count" id="pickCount">0 ausgewählt</span>
+        </div>
         <div id="villages"></div>
       </section>
 
@@ -163,6 +189,32 @@
     </div>
 
     <div>
+      <section class="card">
+        <h2>Eigene Pläne</h2>
+        <div class="maker">
+          <label>Name des Bauplans<input type="text" id="newBuildName" placeholder="zum Beispiel Schnellstart"></label>
+          <button id="makeBuild">Anlegen</button>
+          <button id="clearBuild">Leeren</button>
+        </div>
+        <div class="maker" style="margin-top:10px">
+          <label>Auftrag<select id="pickBuilding"></select></label>
+          <input type="number" id="pickLevel" min="1" max="30" value="10" style="width:76px">
+          <button id="addOrder">Anhängen</button>
+        </div>
+        <p class="plan" id="draftPlan">Noch keine Aufträge im Entwurf.</p>
+        <div class="maker" style="margin-top:14px">
+          <label>Name des Truppenplans<input type="text" id="newTroopName" placeholder="zum Beispiel Wachdorf"></label>
+          <button id="makeTroop">Anlegen</button>
+          <button id="clearTroop">Leeren</button>
+        </div>
+        <div class="maker" style="margin-top:10px">
+          <label>Einheit<select id="pickUnit"></select></label>
+          <input type="number" id="pickAmount" min="1" value="500" style="width:76px">
+          <button id="addUnit">Anhängen</button>
+        </div>
+        <p class="plan" id="draftTroop">Noch keine Einheiten im Entwurf.</p>
+      </section>
+
       <section class="card">
         <h2>Einstellungen</h2>
         <div class="settings">
@@ -374,6 +426,52 @@
     new Village('Rütliwacht', '501|499', 'Rohstoffe', 'Defensiv voll')
   ];
   var minute = 0, running = false, timer = null, actions = 0;
+  var picked = {};
+  var draftOrders = [];
+  var draftUnits = {};
+
+  function renderPicked() {
+    var count = Object.keys(picked).length;
+    document.getElementById('pickCount').textContent = count + ' ausgewählt';
+    document.getElementById('pickAll').checked = count === villages.length;
+    villages.forEach(function (v, i) {
+      var node = document.getElementById('villages').children[i];
+      if (!node) return;
+      node.classList.toggle('picked', Boolean(picked[v.name]));
+      node.querySelector('[data-pick]').checked = Boolean(picked[v.name]);
+    });
+  }
+
+  function fillPlanSelects() {
+    [['assignBuild', BUILD_TEMPLATES], ['assignTroop', TROOP_TEMPLATES]].forEach(function (pair) {
+      var select = document.getElementById(pair[0]);
+      var current = select.value;
+      select.innerHTML = '';
+      Object.keys(pair[1]).forEach(function (name) { select.appendChild(new Option(name, name)); });
+      if (current && pair[1][current]) select.value = current;
+    });
+    villages.forEach(function (v, i) {
+      var node = document.getElementById('villages').children[i];
+      if (!node) return;
+      var b = node.querySelector('[data-build]');
+      var t = node.querySelector('[data-troop]');
+      b.innerHTML = ''; t.innerHTML = '';
+      Object.keys(BUILD_TEMPLATES).forEach(function (n) { b.appendChild(new Option(n, n)); });
+      Object.keys(TROOP_TEMPLATES).forEach(function (n) { t.appendChild(new Option(n, n)); });
+      b.value = v.buildTemplate; t.value = v.troopTemplate;
+    });
+  }
+
+  function assign(field, value) {
+    var names = Object.keys(picked);
+    if (!names.length) { log('hold', 'Kein Dorf ausgewählt.'); return; }
+    villages.forEach(function (v) {
+      if (!picked[v.name]) return;
+      v[field] = value;
+    });
+    fillPlanSelects();
+    log('hold', value + ' auf ' + names.length + ' ' + (names.length === 1 ? 'Dorf' : 'Dörfer') + ' zugewiesen');
+  }
 
   function settings() {
     return {
@@ -502,7 +600,7 @@
     var el = document.createElement('div');
     el.className = 'village';
     el.innerHTML =
-      '<div class="vhead"><span class="vname"></span><span class="coords"></span></div>' +
+      '<div class="vhead"><input class="vpick" type="checkbox" data-pick><span class="vname"></span><span class="coords"></span></div>' +
       '<div class="res">' +
         '<div><span>Holz</span><b data-wood></b><div class="meter"><i data-mwood></i></div></div>' +
         '<div><span>Lehm</span><b data-stone></b><div class="meter"><i data-mstone></i></div></div>' +
@@ -528,6 +626,10 @@
     Object.keys(TROOP_TEMPLATES).forEach(function (name) { t.appendChild(new Option(name, name)); });
     t.value = v.troopTemplate;
     t.addEventListener('change', function () { v.troopTemplate = t.value; log('hold', v.name + ' Truppen: Vorlage ' + t.value + ' zugewiesen'); });
+    el.querySelector('[data-pick]').addEventListener('change', function (e) {
+      if (e.target.checked) picked[v.name] = true; else delete picked[v.name];
+      renderPicked();
+    });
     el.querySelector('[data-bactive]').addEventListener('change', function (e) { v.buildActive = e.target.checked; });
     el.querySelector('[data-tactive]').addEventListener('change', function (e) { v.troopActive = e.target.checked; });
     return el;
@@ -576,7 +678,74 @@
     render();
   });
 
+  // Zuweisung
+  document.getElementById('pickAll').addEventListener('change', function (e) {
+    picked = {};
+    if (e.target.checked) villages.forEach(function (v) { picked[v.name] = true; });
+    renderPicked();
+  });
+  document.getElementById('doAssignBuild').addEventListener('click', function () {
+    assign('buildTemplate', document.getElementById('assignBuild').value);
+  });
+  document.getElementById('doAssignTroop').addEventListener('click', function () {
+    assign('troopTemplate', document.getElementById('assignTroop').value);
+  });
+
+  // Eigene Plaene
+  Object.keys(B_NAME).forEach(function (key) {
+    document.getElementById('pickBuilding').appendChild(new Option(B_NAME[key], key));
+  });
+  Object.keys(UNIT_META).forEach(function (key) {
+    document.getElementById('pickUnit').appendChild(new Option(UNIT_META[key].n, key));
+  });
+
+  function showDraftPlan() {
+    var el = document.getElementById('draftPlan');
+    el.textContent = draftOrders.length
+      ? draftOrders.map(function (o) { return B_NAME[o[0]] + ' ' + o[1]; }).join(' · ')
+      : 'Noch keine Aufträge im Entwurf.';
+  }
+  function showDraftTroop() {
+    var el = document.getElementById('draftTroop');
+    var keys = Object.keys(draftUnits);
+    el.textContent = keys.length
+      ? keys.map(function (k) { return UNIT_META[k].n + ' ' + draftUnits[k]; }).join(' · ')
+      : 'Noch keine Einheiten im Entwurf.';
+  }
+
+  document.getElementById('addOrder').addEventListener('click', function () {
+    draftOrders.push([document.getElementById('pickBuilding').value, Number(document.getElementById('pickLevel').value)]);
+    showDraftPlan();
+  });
+  document.getElementById('clearBuild').addEventListener('click', function () { draftOrders = []; showDraftPlan(); });
+  document.getElementById('makeBuild').addEventListener('click', function () {
+    var name = document.getElementById('newBuildName').value.trim();
+    if (!name || !draftOrders.length) { log('hold', 'Name und mindestens ein Auftrag werden gebraucht.'); return; }
+    BUILD_TEMPLATES[name] = draftOrders.slice();
+    draftOrders = []; showDraftPlan();
+    document.getElementById('newBuildName').value = '';
+    fillPlanSelects();
+    log('hold', 'Bauplan ' + name + ' angelegt, er steht nun in der Zuweisung bereit.');
+  });
+
+  document.getElementById('addUnit').addEventListener('click', function () {
+    draftUnits[document.getElementById('pickUnit').value] = Number(document.getElementById('pickAmount').value);
+    showDraftTroop();
+  });
+  document.getElementById('clearTroop').addEventListener('click', function () { draftUnits = {}; showDraftTroop(); });
+  document.getElementById('makeTroop').addEventListener('click', function () {
+    var name = document.getElementById('newTroopName').value.trim();
+    if (!name || !Object.keys(draftUnits).length) { log('hold', 'Name und mindestens eine Einheit werden gebraucht.'); return; }
+    TROOP_TEMPLATES[name] = Object.assign({}, draftUnits);
+    draftUnits = {}; showDraftTroop();
+    document.getElementById('newTroopName').value = '';
+    fillPlanSelects();
+    log('hold', 'Truppenplan ' + name + ' angelegt, er steht nun in der Zuweisung bereit.');
+  });
+
   log('hold', 'Bereit. Zwei Dörfer stehen auf Stufe drei, wie nach dem Einstieg in eine neue Welt.');
   render();
+  fillPlanSelects();
+  renderPicked();
 })();
 </script>

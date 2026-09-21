@@ -37,9 +37,27 @@
         <button id="btnProbe">Status pruefen</button>
         <span class="muted">Melde dich zuerst im Spielfenster an, danach die Doerfer einlesen.</span>
       </div>
+
+      <div class="assignbar">
+        <span class="assigncount" id="selCount">0 Doerfer ausgewaehlt</span>
+        <div class="assigngroup">
+          <select id="assignBuild"></select>
+          <button id="btnAssignBuild">Bauvorlage zuweisen</button>
+        </div>
+        <div class="assigngroup">
+          <select id="assignTroop"></select>
+          <button id="btnAssignTroop">Truppenvorlage zuweisen</button>
+        </div>
+        <div class="assigngroup">
+          <button id="btnActivate">Aktivieren</button>
+          <button id="btnDeactivate">Pausieren</button>
+        </div>
+      </div>
+
       <table id="villageTable">
         <thead>
           <tr>
+            <th class="tick"><input type="checkbox" id="selAll" title="Alle auswaehlen" /></th>
             <th>Dorf</th><th>Koordinaten</th><th>Bauvorlage</th><th>Bauen</th>
             <th>Truppenvorlage</th><th>Rekrutieren</th><th>Letzter Durchlauf</th>
           </tr>
@@ -54,11 +72,21 @@
           <h2>Bauvorlagen</h2>
           <p class="muted">Eine Zeile je Auftrag, Gebaeude und Zielstufe, zum Beispiel <code>wood 10</code>. Die Liste wird strikt von oben nach unten abgearbeitet.</p>
           <select id="buildSelect"></select>
+          <div class="row tight">
+            <button id="btnNewBuild">Neue Vorlage</button>
+            <button id="btnCopyBuild">Duplizieren</button>
+            <button id="btnDeleteBuild">Loeschen</button>
+          </div>
           <input id="buildName" type="text" placeholder="Name der Vorlage" />
-          <textarea id="buildBody" rows="16" spellcheck="false"></textarea>
+          <div class="adder">
+            <select id="buildPickKey"></select>
+            <input id="buildPickLevel" type="number" min="1" max="30" value="10" />
+            <button id="btnAddOrder">Auftrag anhaengen</button>
+          </div>
+          <textarea id="buildBody" rows="14" spellcheck="false"></textarea>
           <div class="row">
             <button id="btnSaveBuild" class="primary">Bauvorlage speichern</button>
-            <button id="btnDeleteBuild">Loeschen</button>
+            <span class="muted" id="buildCount"></span>
           </div>
           <p class="muted" id="buildKeys"></p>
         </div>
@@ -66,11 +94,21 @@
           <h2>Truppenvorlagen</h2>
           <p class="muted">Eine Zeile je Einheit mit dem Zielbestand, zum Beispiel <code>axe 7000</code>.</p>
           <select id="troopSelect"></select>
+          <div class="row tight">
+            <button id="btnNewTroop">Neue Vorlage</button>
+            <button id="btnCopyTroop">Duplizieren</button>
+            <button id="btnDeleteTroop">Loeschen</button>
+          </div>
           <input id="troopName" type="text" placeholder="Name der Vorlage" />
-          <textarea id="troopBody" rows="16" spellcheck="false"></textarea>
+          <div class="adder">
+            <select id="troopPickKey"></select>
+            <input id="troopPickAmount" type="number" min="1" value="500" />
+            <button id="btnAddUnit">Einheit anhaengen</button>
+          </div>
+          <textarea id="troopBody" rows="14" spellcheck="false"></textarea>
           <div class="row">
             <button id="btnSaveTroop" class="primary">Truppenvorlage speichern</button>
-            <button id="btnDeleteTroop">Loeschen</button>
+            <span class="muted" id="troopCount"></span>
           </div>
           <p class="muted" id="troopKeys"></p>
         </div>

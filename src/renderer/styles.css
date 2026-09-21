@@ -65,3 +65,19 @@ label.check input { width: auto; margin: 0; }
 .log .error { color: var(--err); }
 .log .action { color: var(--ok); font-weight: 600; }
 code { background: rgba(128,128,128,.14); padding: 1px 5px; border-radius: 4px; }
+
+.assignbar {
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 14px;
+}
+.assigngroup { display: flex; gap: 6px; align-items: center; }
+.assigngroup select { width: auto; min-width: 160px; }
+.assigncount { font-size: 12px; color: var(--muted); min-width: 150px; }
+.adder { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
+.adder select { flex: 1 1 auto; }
+.adder input { width: 90px; flex: 0 0 auto; }
+.adder button { white-space: nowrap; }
+.row.tight { margin-bottom: 8px; margin-top: 8px; }
+th.tick, td.tick { width: 34px; text-align: center; padding-right: 0; }
+tr.selected td { background: rgba(125,81,42,.07); }

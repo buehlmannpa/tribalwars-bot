@@ -117,6 +117,14 @@ ipcMain.handle('village:update', (_event, { id, patch }) => {
   return store.get();
 });
 
+// Sammelzuweisung fuer mehrere Doerfer in einem Schritt.
+ipcMain.handle('villages:assign', (_event, { ids, patch }) => {
+  for (const id of ids || []) Object.assign(store.village(id), patch);
+  store.save();
+  logger.info(`Zuweisung fuer ${(ids || []).length} Doerfer gespeichert`);
+  return store.get();
+});
+
 ipcMain.handle('village:remove', (_event, { id }) => {
   delete store.get().villages[id];
   store.save();
