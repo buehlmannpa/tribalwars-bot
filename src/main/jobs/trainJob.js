@@ -33,6 +33,11 @@ async function runTrainJob({ bridge, store, logger, village }) {
   }
   store.save();
 
+  // Auf Wunsch wird nur nachgelegt, wenn gerade nichts mehr ausgebildet wird.
+  if (config.automation.trainOnlyWhenIdle && state.queueLength > 0) {
+    return { ok: true, skipped: true, reason: `${label}: Ausbildung laeuft noch, ${state.queueLength} Auftrag${state.queueLength === 1 ? '' : 'e'} offen` };
+  }
+
   const buffer = config.automation.resourceBuffer || {};
   const shortOf = ['wood', 'stone', 'iron'].find((key) => state.resources[key] < (Number(buffer[key]) || 0));
   if (shortOf) {

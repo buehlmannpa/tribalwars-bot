@@ -262,6 +262,48 @@ class Bridge {
     return { ...result, confirmed: true };
   }
 
+  // Zahl der eigenen ausgehenden Befehle eines Dorfes.
+  async readCommands(villageId) {
+    const nav = await this.navigate('overview', villageId);
+    if (nav && nav.ok === false) return nav;
+    return this.exec(scripts.COMMAND_COUNT);
+  }
+
+  // Schickt einen Angriff auf ein Ziel. Jeder Schritt wird gegengeprueft, und
+  // erst ein zusaetzlicher Befehl in der Liste gilt als Nachweis.
+  async sendAttack(villageId, target, troops, unitKeys, knownCommands) {
+    if (this.observeOnly) {
+      return { ok: true, observed: true, target, ordered: troops };
+    }
+
+    const before = Number.isFinite(knownCommands)
+      ? { ok: true, commands: knownCommands }
+      : await this.readCommands(villageId);
+    const nav = await this.navigate('place', villageId);
+    if (nav && nav.ok === false) return nav;
+
+    const prepared = await this.exec(scripts.prepareAttack(target.x, target.y, troops, unitKeys));
+    if (!prepared || !prepared.ok) {
+      await this.captureUnconfirmed('angriff-vorbereiten');
+      return prepared || { ok: false, error: 'Versammlungsplatz nicht lesbar' };
+    }
+
+    await sleep(1200 + Math.floor(Math.random() * 900));
+    const confirmed = await this.exec(scripts.confirmAttack(target.x, target.y));
+    if (!confirmed || !confirmed.ok) {
+      await this.captureUnconfirmed('angriff-bestaetigen');
+      return confirmed || { ok: false, error: 'Bestaetigung nicht lesbar' };
+    }
+
+    await sleep(1500 + Math.floor(Math.random() * 1200));
+    const after = await this.readCommands(villageId);
+    if (before && before.ok && after && after.ok && after.commands > before.commands) {
+      return { ok: true, confirmed: true, target, ordered: troops };
+    }
+    await this.captureUnconfirmed('angriff-nachweis');
+    return { ok: false, error: 'Angriff wurde abgeschickt, es ist aber kein neuer Befehl erschienen' };
+  }
+
   // Legt die rohe Seite auf die Platte. Damit lassen sich die Auswahlpfade
   // gegen die echte Welt pruefen, ohne dass Zugangsdaten noetig sind.
   async capture(label) {

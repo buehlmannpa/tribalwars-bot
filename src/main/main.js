@@ -6,11 +6,13 @@ const { Store } = require('./store');
 const { Logger } = require('./logger');
 const { Bridge } = require('./bridge');
 const { Scheduler } = require('./scheduler');
+const { WorldData } = require('./worldData');
 
 let store;
 let logger;
 let bridge;
 let scheduler;
+let world;
 let dashboard;
 
 function createDashboard() {
@@ -62,7 +64,8 @@ app.whenReady().then(() => {
   store = new Store();
   logger = new Logger();
   bridge = new Bridge({ store, logger });
-  scheduler = new Scheduler({ bridge, store, logger, onStatus: (status) => send('status', status) });
+  world = new WorldData({ store, logger });
+  scheduler = new Scheduler({ bridge, store, logger, world, onStatus: (status) => send('status', status) });
 
   logger.onEntry((entry) => send('log', entry));
   createDashboard();
@@ -204,6 +207,59 @@ ipcMain.handle('capture', async (_event, { label }) => {
   if (result && result.ok) shell.showItemInFolder(result.file);
   return result;
 });
+
+// Vorschau des Farmassistenten fuer ein Dorf, ohne irgendetwas zu schicken.
+ipcMain.handle('farm:preview', async (_event, { id }) => {
+  const village = store.get().villages[id];
+  if (!village) return { ok: false, error: 'Dorf unbekannt' };
+  const ready = await world.ensure();
+  if (!ready.ok) return ready;
+
+  const { planFarmRun, cleanTroops, parseCoords } = require('./jobs/farmJob');
+  const farm = store.get().farm;
+  const origin = parseCoords(village.coords);
+  if (!origin) return { ok: false, error: 'Dorf noch nicht eingelesen' };
+
+  const troops = cleanTroops(farm.troops);
+  const speeds = Object.fromEntries(Object.entries(world.units || {}).map(([k, v]) => [k, v.speed]));
+  const plan = planFarmRun({
+    origin, troops, units: world.units || {},
+    unitSpeed: world.unitSpeed || 1,
+    maxHours: Number(farm.maxHours) || 2,
+    minMinutes: Number(farm.minMinutesBetweenAttacks) || 120,
+    history: farm.history || {},
+    barbarians: world.barbarians(),
+    home: village.unitsHome || {},
+    now: Date.now()
+  });
+
+  // Alle erreichbaren Ziele zaehlen, unabhaengig von der Wartezeit.
+  const { distance, travelMinutes, slowestSpeed } = require('../shared/geo');
+  const slowest = slowestSpeed(troops, speeds);
+  const maxFields = slowest ? (Number(farm.maxHours) * 60) / (slowest * (world.unitSpeed || 1)) : 0;
+  const reachable = slowest ? world.barbarians()
+    .map((v) => ({ v, fields: distance(origin, v) }))
+    .filter((entry) => entry.fields > 0 && entry.fields <= maxFields)
+    .sort((a, b) => a.fields - b.fields) : [];
+
+  return {
+    ok: true,
+    total: world.barbarians().length,
+    reachable: reachable.length,
+    maxFields: Math.round(maxFields * 10) / 10,
+    nearest: reachable.slice(0, 12).map((entry) => ({
+      coords: `${entry.v.x}|${entry.v.y}`,
+      points: entry.v.points,
+      fields: Math.round(entry.fields * 10) / 10,
+      minutes: Math.round(travelMinutes(entry.fields, slowest, world.unitSpeed || 1)),
+      lastAttack: (farm.history || {})[entry.v.id] || 0
+    })),
+    next: plan.target ? `${plan.target.x}|${plan.target.y}` : null,
+    reason: plan.reason || null
+  };
+});
+
+ipcMain.handle('world:refresh', async () => world.refresh());
 
 ipcMain.handle('probe', async () => {
   const probe = await bridge.probe();

@@ -317,6 +317,12 @@ const SCAN_VILLAGE = wrap(`
 
   // Die Truppenanzeige fuehrt zwei Bloecke: alle Einheiten des Dorfes und
   // jene, die gerade daheim stehen. Einheiten ohne Bestand fehlen ganz.
+  var readCommands = function () {
+    var box = document.getElementById('commands_outgoings');
+    if (box && box.getAttribute('data-commands') !== null) return Number(box.getAttribute('data-commands'));
+    return document.querySelectorAll('#commands_outgoings .command-row').length;
+  };
+
   var readUnits = function (selector) {
     var out = {};
     var nodes = document.querySelectorAll(selector);
@@ -345,8 +351,20 @@ const SCAN_VILLAGE = wrap(`
     },
     pop: Number(gd.village.pop),
     popMax: Number(gd.village.pop_max),
+    commands: readCommands(),
     incomings: gd.player ? Number(gd.player.incomings || 0) : 0
   };
+`);
+
+// Zahl der eigenen ausgehenden Befehle. Die Dorfuebersicht fuehrt sie am
+// Behaelter der Befehlsliste mit.
+const COMMAND_COUNT = wrap(`
+  var box = document.getElementById('commands_outgoings');
+  if (box && box.getAttribute('data-commands') !== null) {
+    return { ok: true, commands: Number(box.getAttribute('data-commands')) };
+  }
+  var rows = document.querySelectorAll('#commands_outgoings .command-row');
+  return { ok: true, commands: rows.length };
 `);
 
 // Fingerabdruck der Gebaeudeseite. Er aendert sich genau dann, wenn ein
@@ -388,6 +406,92 @@ const TRAIN_FINGERPRINT = wrap(`
   };
 `);
 
+// Bereitet einen Angriff auf dem Versammlungsplatz vor und loest ihn aus.
+// Jede Annahme wird gegengeprueft: Ziel, Einheiten und dass kein anderes
+// Feld gefuellt ist. Stimmt etwas nicht, wird abgebrochen statt geraten.
+const prepareAttack = (x, y, troops, unitKeys) => wrap(`
+  var x = ${JSON.stringify(String(x))};
+  var y = ${JSON.stringify(String(y))};
+  var troops = ${JSON.stringify(troops)};
+  var unitKeys = ${JSON.stringify(unitKeys)};
+
+  var form = document.getElementById('units_form') || document.querySelector('form[action*="screen=place"]');
+  if (!form) return { ok: false, error: 'Kein Formular auf dem Versammlungsplatz gefunden' };
+
+  // Ziel eintragen, entweder zwei Felder oder ein gemeinsames.
+  var fx = form.querySelector('[name="x"]');
+  var fy = form.querySelector('[name="y"]');
+  var combined = form.querySelector('[name="input"]');
+  if (fx && fy) {
+    fx.value = x; fy.value = y;
+    fx.dispatchEvent(new Event('input', { bubbles: true }));
+    fy.dispatchEvent(new Event('input', { bubbles: true }));
+  } else if (combined) {
+    combined.value = x + '|' + y;
+    combined.dispatchEvent(new Event('input', { bubbles: true }));
+  } else {
+    return { ok: false, error: 'Kein Eingabefeld fuer das Ziel gefunden' };
+  }
+
+  // Alle Einheitenfelder leeren, danach nur die gewuenschten fuellen.
+  var written = {};
+  var missing = [];
+  unitKeys.forEach(function (unit) {
+    var input = form.querySelector('[name="' + unit + '"]');
+    if (!input) return;
+    input.value = '';
+  });
+  Object.keys(troops).forEach(function (unit) {
+    if (!troops[unit]) return;
+    var input = form.querySelector('[name="' + unit + '"]');
+    if (!input) { missing.push(unit); return; }
+    input.value = String(troops[unit]);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    written[unit] = troops[unit];
+  });
+  if (missing.length) return { ok: false, error: 'Kein Eingabefeld fuer ' + missing.join(', ') };
+  if (!Object.keys(written).length) return { ok: false, error: 'Keine Einheiten einzutragen' };
+
+  // Gegenprobe, damit nie mehr losgeschickt wird als gewollt.
+  var fremd = [];
+  unitKeys.forEach(function (unit) {
+    var input = form.querySelector('[name="' + unit + '"]');
+    if (!input) return;
+    var value = Number(input.value || 0);
+    if (value && Number(troops[unit] || 0) !== value) fremd.push(unit);
+  });
+  if (fremd.length) return { ok: false, error: 'Sicherung: fremde Eingaben bei ' + fremd.join(', ') };
+
+  var ziel = (fx && fy) ? (fx.value + '|' + fy.value) : combined.value.replace(/\\s/g, '');
+  if (ziel !== x + '|' + y) return { ok: false, error: 'Sicherung: Ziel liess sich nicht setzen' };
+
+  var button = document.getElementById('target_attack') || form.querySelector('[name="attack"]');
+  if (!button) return { ok: false, error: 'Kein Knopf fuer den Angriff gefunden' };
+  button.click();
+  return { ok: true, target: ziel, ordered: written };
+`);
+
+// Bestaetigt den vorbereiteten Angriff. Vorher wird geprueft, dass wirklich
+// das gemeinte Ziel auf der Seite steht.
+const confirmAttack = (x, y) => wrap(`
+  var x = ${JSON.stringify(String(x))};
+  var y = ${JSON.stringify(String(y))};
+  var text = document.body.textContent.replace(/\\s+/g, ' ');
+  if (text.indexOf(x + '|' + y) === -1) {
+    return { ok: false, error: 'Sicherung: auf der Bestaetigung steht nicht das gemeinte Ziel' };
+  }
+  var form = document.getElementById('command-data-form')
+    || document.querySelector('form[action*="try=confirm"]')
+    || document.querySelector('form[action*="screen=place"]');
+  if (!form) return { ok: false, error: 'Kein Bestaetigungsformular gefunden' };
+  var button = document.getElementById('troop_confirm_submit')
+    || document.getElementById('troop_confirm_go')
+    || form.querySelector('input[type="submit"], button[type="submit"]');
+  if (!button) return { ok: false, error: 'Kein Knopf zum Bestaetigen gefunden' };
+  button.click();
+  return { ok: true, target: x + '|' + y };
+`);
+
 // Liefert die rohe Seite, damit Auswahlpfade gegen die echte Welt geprueft werden koennen.
 const CAPTURE = wrap(`
   return { ok: true, url: location.href, html: document.documentElement.outerHTML };
@@ -395,5 +499,6 @@ const CAPTURE = wrap(`
 
 module.exports = {
   PROBE, LIST_VILLAGES, READ_BUILD, READ_TRAIN, SCAN_VILLAGE, CAPTURE,
-  clickBuild, canBuild, submitTrain, buildFingerprint, TRAIN_FINGERPRINT
+  clickBuild, canBuild, submitTrain, buildFingerprint, TRAIN_FINGERPRINT,
+  COMMAND_COUNT, prepareAttack, confirmAttack
 };

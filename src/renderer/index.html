@@ -49,6 +49,7 @@
     <nav class="segmented" role="tablist">
       <button class="seg active" data-tab="villages">Doerfer</button>
       <button class="seg" data-tab="world">Weltuebersicht</button>
+      <button class="seg" data-tab="farm">Farmen</button>
       <button class="seg" data-tab="templates">Vorlagen</button>
       <button class="seg" data-tab="settings">Einstellungen</button>
       <button class="seg" data-tab="log">Protokoll</button>
@@ -66,6 +67,10 @@
           <div class="group">
             <select id="assignTroop"></select>
             <button id="btnAssignTroop" class="btn small">Truppenplan zuweisen</button>
+          </div>
+          <div class="group">
+            <button id="btnFarmOn" class="btn small">Farmen an</button>
+            <button id="btnFarmOff" class="btn small">Farmen aus</button>
           </div>
           <div class="group push">
             <button id="btnActivate" class="btn small">Aktivieren</button>
@@ -92,6 +97,43 @@
           <span class="sub push" id="worldMeta"></span>
         </div>
         <div id="worldView" class="grid"></div>
+      </section>
+
+      <!-- Farmen -->
+      <section id="tab-farm" class="panel">
+        <div class="cols">
+          <div class="stack">
+            <div class="card">
+              <h2>Farmassistent</h2>
+              <label class="check big"><input id="farmEnabled" type="checkbox" /> Barbarendoerfer angreifen</label>
+              <p class="hint">Angegriffen wird immer das naechstgelegene Barbarendorf im Umkreis, das nicht in der Wartezeit steht. Doerfer anderer Spieler werden nie angegriffen.</p>
+              <p class="hint"><b>Noch nicht gegen die echte Seite geprueft:</b> der Versand ueber den Versammlungsplatz. Stimmt der Aufbau nicht, bricht die App ab und legt einen Seitenabzug an, statt etwas Falsches zu schicken. Pruefe den ersten Lauf im Modus nur beobachten.</p>
+              <div class="fields">
+                <label class="field">Umkreis in Stunden<input id="farmHours" type="number" min="0.25" step="0.25" /></label>
+                <label class="field">Wartezeit je Ziel in Minuten<input id="farmWait" type="number" min="5" /></label>
+              </div>
+              <h3>Truppen je Angriff</h3>
+              <p class="hint">Diese Truppen muessen im Dorf stehen, sonst wird nichts geschickt.</p>
+              <div id="farmTroops" class="fields three"></div>
+            </div>
+
+            <div class="card">
+              <h2>Weltdaten</h2>
+              <p class="hint" id="worldDataInfo">Die Karte der Welt ist oeffentlich und wird alle sechs Stunden frisch geholt.</p>
+              <button id="btnWorldRefresh" class="btn small">Jetzt neu laden</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Ziele in Reichweite</h2>
+            <div class="row">
+              <select id="farmVillage"></select>
+              <button id="btnFarmPreview" class="btn small">Vorschau</button>
+            </div>
+            <p class="hint" id="farmSummary">Waehle ein Dorf und schau nach, was in Reichweite liegt.</p>
+            <div id="farmTargets" class="stack"></div>
+          </div>
+        </div>
       </section>
 
       <!-- Vorlagen -->

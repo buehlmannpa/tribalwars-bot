@@ -44,8 +44,12 @@ Accounts. Der Entscheid liegt bei dir.
    optionale Nachtpause, Ueberspringen bei eingehenden Angriffen.
 10. Seitenabzug auf die Platte, um Auswahlpfade gegen eine Welt zu pruefen.
 
-Noch nicht enthalten sind Rohstoffausgleich, Muenzpraegung, Farmen, Raubzuege
-und Angriffsplanung.
+11. Farmassistent: greift Barbarendoerfer im eingestellten Umkreis an, immer
+    mit der eingestellten Truppenzahl. Der Umkreis wird in Stunden Laufzeit
+    angegeben, die App rechnet daraus die Felder aus der oeffentlichen Karte
+    und den Einheitendaten der Welt. Je Ziel gilt eine Wartezeit.
+
+Noch nicht enthalten sind Rohstoffausgleich, Muenzpraegung und Raubzuege.
 
 ## Installation
 
@@ -124,6 +128,9 @@ erscheinen als Balken und Ringe, nicht als nackter Text:
 | Vorrang bei Rohstoffen | Bauplan zuerst, Truppen zuerst oder abwechselnd |
 | Bauschleife fuellen bis | Ohne Premium nimmt das Spiel hoechstens zwei Auftraege |
 | Kleinste Bestellmenge | Unterhalb davon wartet die Rekrutierung auf Rohstoffe |
+| Nur bei leerer Ausbildung | Es wird erst nachgelegt, wenn nichts mehr ausgebildet wird |
+| Umkreis in Stunden | Wie weit der Farmassistent laufen darf |
+| Wartezeit je Ziel | Wie lange ein Barbarendorf nach einem Angriff ruht |
 | Rohstoffpuffer | Diese Mengen bleiben dem Bauplan vorbehalten |
 | Bauernhof Puffer | So viele Plaetze bleiben frei |
 | Pause minimal und maximal | Zufaelliger Abstand zwischen zwei Durchlaeufen |
@@ -168,6 +175,8 @@ echter Spielseiten der Version 8.435 geprueft. Die Auszuege liegen unter
 | Dorfliste, `screen=overview_villages` | geprueft |
 | Dorfuebersicht, `screen=overview` | geprueft |
 | Kaserne, Stall, Werkstatt | geprueft |
+| Karte und Einheitendaten der Welt | geprueft, oeffentlich abrufbar |
+| Versammlungsplatz, Versand des Angriffs | **noch nicht geprueft**, bricht bei Abweichung ab |
 | Botschutz | noch offen, es fehlt ein Abzug im gesperrten Zustand |
 
 Noch nicht gegen eine laufende Sitzung geprueft ist das Zusammenspiel im

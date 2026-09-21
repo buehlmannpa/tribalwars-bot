@@ -3,6 +3,7 @@
 const { Notification, powerSaveBlocker } = require('electron');
 const { runBuildJob } = require('./jobs/buildJob');
 const { runTrainJob } = require('./jobs/trainJob');
+const { runFarmJob } = require('./jobs/farmJob');
 const { sleep } = require('./bridge');
 
 const randomBetween = (min, max) => min + Math.random() * (max - min);
@@ -11,10 +12,11 @@ const randomBetween = (min, max) => min + Math.random() * (max - min);
 // haelt zufaellige Abstaende ein und stoppt sofort, wenn das Spiel einen
 // Botschutz zeigt oder die Sitzung abgelaufen ist.
 class Scheduler {
-  constructor({ bridge, store, logger, onStatus }) {
+  constructor({ bridge, store, logger, world, onStatus }) {
     this.bridge = bridge;
     this.store = store;
     this.logger = logger;
+    this.world = world;
     this.onStatus = onStatus || (() => {});
     this.running = false;
     this.pauseReason = null;
@@ -212,7 +214,7 @@ class Scheduler {
     const cooldown = (Number(config.automation.villageCooldownMinutes) || 12) * 60 * 1000;
     const now = Date.now();
     const candidates = Object.values(config.villages)
-      .filter((v) => v.buildActive || v.troopActive)
+      .filter((v) => v.buildActive || v.troopActive || v.farmActive)
       .filter((v) => now - (v.lastRun || 0) >= cooldown)
       .sort((a, b) => (a.lastRun || 0) - (b.lastRun || 0));
     return candidates[0] || null;

@@ -32,7 +32,16 @@ const DEFAULTS = {
     nightPause: { enabled: false, startHour: 23, endHour: 8 },
     pauseOnIncoming: true,
     keepAwake: true,
+    trainOnlyWhenIdle: true,
     notifications: { captcha: true, login: true, incoming: true }
+  },
+  // Farmassistent. Greift Barbarendoerfer im eingestellten Umkreis an.
+  farm: {
+    enabled: false,
+    maxHours: 2,
+    minMinutesBetweenAttacks: 120,
+    troops: { spear: 0, sword: 0, axe: 0, archer: 0, spy: 0, light: 10, marcher: 0, heavy: 0 },
+    history: {}
   },
   villages: {},
   buildTemplates: BUILD_TEMPLATES,
@@ -80,6 +89,7 @@ class Store {
         troopTemplate: null,
         buildActive: false,
         troopActive: false,
+        farmActive: false,
         lastRun: 0,
         note: ''
       };

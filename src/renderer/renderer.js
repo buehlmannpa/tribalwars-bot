@@ -166,6 +166,7 @@ function villageCard(village) {
   if (village.points) head.appendChild(el('span', 'badge-soft', `${nf(village.points)} Punkte`));
   head.appendChild(el('span', `badge-soft ${village.buildActive ? 'on' : 'off'}`, village.buildActive ? 'Bauen an' : 'Bauen aus'));
   head.appendChild(el('span', `badge-soft ${village.troopActive ? 'on' : 'off'}`, village.troopActive ? 'Rekrutieren an' : 'Rekrutieren aus'));
+  head.appendChild(el('span', `badge-soft ${village.farmActive ? 'on' : 'off'}`, village.farmActive ? 'Farmen an' : 'Farmen aus'));
   body.appendChild(head);
 
   const res = village.resources;
@@ -392,6 +393,87 @@ function loadTroopTemplate() {
   $('troopCount').textContent = `${Object.keys(template).length} Einheiten`;
 }
 
+// ---------------------------------------------------------------- Farmen
+
+function renderFarm() {
+  const farm = state.config.farm || { troops: {} };
+  $('farmEnabled').checked = Boolean(farm.enabled);
+  $('farmHours').value = farm.maxHours;
+  $('farmWait').value = farm.minMinutesBetweenAttacks;
+
+  const box = $('farmTroops');
+  if (!box.children.length) {
+    for (const [key, name] of UNITS) {
+      const field = el('label', 'field', name);
+      const input = el('input');
+      input.type = 'number';
+      input.min = '0';
+      input.id = `farmUnit_${key}`;
+      input.addEventListener('change', saveFarm);
+      field.appendChild(input);
+      box.appendChild(field);
+    }
+  }
+  for (const [key] of UNITS) {
+    const input = $(`farmUnit_${key}`);
+    if (input) input.value = Number((farm.troops || {})[key] || 0);
+  }
+
+  const select = $('farmVillage');
+  const current = select.value;
+  select.innerHTML = '';
+  for (const village of Object.values(state.config.villages)) {
+    select.appendChild(new Option(`${village.name || village.id} ${village.coords || ''}`.trim(), village.id));
+  }
+  if (current) select.value = current;
+}
+
+async function saveFarm() {
+  const troops = {};
+  for (const [key] of UNITS) troops[key] = Number($(`farmUnit_${key}`).value || 0);
+  state.config = await window.api.invoke('config:patch', {
+    farm: {
+      enabled: $('farmEnabled').checked,
+      maxHours: Number($('farmHours').value),
+      minMinutesBetweenAttacks: Number($('farmWait').value),
+      troops
+    }
+  });
+  renderFarm();
+}
+
+async function previewFarm() {
+  const id = $('farmVillage').value;
+  if (!id) return;
+  $('farmSummary').textContent = 'Ziele werden gesucht.';
+  $('farmTargets').innerHTML = '';
+  const result = await window.api.invoke('farm:preview', { id });
+  if (!result || !result.ok) {
+    $('farmSummary').textContent = result && result.error ? result.error : 'Vorschau nicht moeglich.';
+    return;
+  }
+  $('farmSummary').textContent = `${result.reachable} von ${result.total} Barbarendoerfern in Reichweite, das entspricht ${result.maxFields} Feldern.`
+    + (result.next ? ` Als naechstes ${result.next}.` : ` ${result.reason || ''}`);
+
+  const box = $('farmTargets');
+  for (const target of result.nearest) {
+    const row = el('div', 'meter');
+    const top = el('div', 'top');
+    top.appendChild(el('span', null, `${target.coords} · ${nf(target.points)} Punkte`));
+    const wait = target.lastAttack
+      ? `zuletzt ${new Date(target.lastAttack).toLocaleTimeString('de-CH')}`
+      : 'noch nie';
+    top.appendChild(el('b', null, `${target.minutes} min · ${target.fields} Felder · ${wait}`));
+    row.appendChild(top);
+    const track = el('div', 'track');
+    const fill = el('div', 'fill farm');
+    fill.style.width = `${pct(target.fields, result.maxFields)}%`;
+    track.appendChild(fill);
+    row.appendChild(track);
+    box.appendChild(row);
+  }
+}
+
 // ---------------------------------------------------------------- Einstellungen
 
 function renderSettings() {
@@ -512,6 +594,7 @@ async function scanWorld() {
 
 function renderAll() {
   renderSettings();
+  renderFarm();
   renderTemplates();
   renderVillages();
   renderWorld();
@@ -570,6 +653,17 @@ $('selAll').addEventListener('change', () => {
 $('btnAssignBuild').addEventListener('click', () => assignToSelection({ buildTemplate: $('assignBuild').value || null }, 'Bauplan'));
 $('btnAssignTroop').addEventListener('click', () => assignToSelection({ troopTemplate: $('assignTroop').value || null }, 'Truppenplan'));
 $('btnActivate').addEventListener('click', () => assignToSelection({ buildActive: true, troopActive: true }, 'Automatik aktiv'));
+$('btnFarmOn').addEventListener('click', () => assignToSelection({ farmActive: true }, 'Farmen aktiv'));
+$('btnFarmOff').addEventListener('click', () => assignToSelection({ farmActive: false }, 'Farmen pausiert'));
+$('btnFarmPreview').addEventListener('click', previewFarm);
+$('btnWorldRefresh').addEventListener('click', async () => {
+  $('worldDataInfo').textContent = 'Weltdaten werden geladen.';
+  const result = await window.api.invoke('world:refresh');
+  $('worldDataInfo').textContent = result && result.ok
+    ? `${nf(result.villages)} Doerfer geladen, davon ${nf(result.barbarians)} Barbarendoerfer.`
+    : `Laden fehlgeschlagen: ${result && result.error ? result.error : 'unbekannt'}`;
+});
+for (const id of ['farmEnabled', 'farmHours', 'farmWait']) $(id).addEventListener('change', saveFarm);
 $('btnDeactivate').addEventListener('click', () => assignToSelection({ buildActive: false, troopActive: false }, 'Automatik pausiert'));
 
 $('buildSelect').addEventListener('change', loadBuildTemplate);
