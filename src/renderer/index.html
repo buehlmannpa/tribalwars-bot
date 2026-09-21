@@ -2,190 +2,239 @@
 <html lang="de-CH">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:" />
   <title>Staemme Manager</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <div class="brand">
-      <h1>Staemme Manager</h1>
-      <span id="world" class="muted"></span>
-    </div>
-    <div class="status">
-      <span id="badge" class="badge stopped">angehalten</span>
-      <span id="statusText" class="muted"></span>
-    </div>
-    <div class="controls">
-      <button id="btnStart" class="primary">Automatik starten</button>
-      <button id="btnStop">Anhalten</button>
-      <button id="btnGame">Spielfenster</button>
-    </div>
-  </header>
+  <div class="shell">
 
-  <div id="observeBanner" class="banner" hidden>
-    <b>Nur beobachten ist eingeschaltet.</b>
-    Die App liest und protokolliert, klickt aber nichts im Spiel. Zum scharf Schalten
-    unter Einstellungen den Haken entfernen.
-    <button id="btnGoLive">Jetzt scharf schalten</button>
+    <header class="titlebar">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 32 36" aria-hidden="true">
+          <path d="M16 1 30 6v13c0 8-6 13.5-14 16C8 32.5 2 27 2 19V6z" fill="url(#g)" stroke="rgba(255,255,255,.35)"/>
+          <path d="M16 7v21M8 13h16" stroke="rgba(255,255,255,.55)" stroke-width="2" fill="none"/>
+          <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#d9a441"/><stop offset="1" stop-color="#8a5a1c"/>
+          </linearGradient></defs>
+        </svg>
+        <div class="names">
+          <h1>Staemme Manager</h1>
+          <span id="world" class="sub"></span>
+        </div>
+      </div>
+
+      <div class="state">
+        <span id="badge" class="pill stopped">angehalten</span>
+        <span id="statusText" class="sub"></span>
+      </div>
+
+      <div class="actions">
+        <button id="btnScan" class="btn">Welt einlesen</button>
+        <button id="btnStart" class="btn primary">Automatik starten</button>
+        <button id="btnStop" class="btn" hidden>Anhalten</button>
+        <button id="btnGame" class="btn">Spielansicht</button>
+      </div>
+    </header>
+
+    <div id="observeBanner" class="banner" hidden>
+      <span class="dot"></span>
+      <div>
+        <b>Nur beobachten</b>
+        <span>Die App liest und protokolliert, klickt aber nichts im Spiel.</span>
+      </div>
+      <button id="btnGoLive" class="btn small">Jetzt scharf schalten</button>
+    </div>
+
+    <nav class="segmented" role="tablist">
+      <button class="seg active" data-tab="villages">Doerfer</button>
+      <button class="seg" data-tab="world">Weltuebersicht</button>
+      <button class="seg" data-tab="templates">Vorlagen</button>
+      <button class="seg" data-tab="settings">Einstellungen</button>
+      <button class="seg" data-tab="log">Protokoll</button>
+    </nav>
+
+    <main>
+      <!-- Doerfer -->
+      <section id="tab-villages" class="panel active">
+        <div class="toolbar card">
+          <label class="check"><input type="checkbox" id="selAll" /> <span id="selCount">0 ausgewaehlt</span></label>
+          <div class="group">
+            <select id="assignBuild"></select>
+            <button id="btnAssignBuild" class="btn small">Bauplan zuweisen</button>
+          </div>
+          <div class="group">
+            <select id="assignTroop"></select>
+            <button id="btnAssignTroop" class="btn small">Truppenplan zuweisen</button>
+          </div>
+          <div class="group push">
+            <button id="btnActivate" class="btn small">Aktivieren</button>
+            <button id="btnDeactivate" class="btn small">Pausieren</button>
+          </div>
+        </div>
+        <p class="hint" id="scanHint">Melde dich in der Spielansicht an, danach die Welt einlesen.</p>
+        <div id="villageList" class="stack"></div>
+      </section>
+
+      <!-- Weltuebersicht -->
+      <section id="tab-world" class="panel">
+        <div class="toolbar card">
+          <button id="btnScan2" class="btn primary small">Welt einlesen</button>
+          <div class="group">
+            <label class="lbl">Sortieren</label>
+            <select id="worldSort">
+              <option value="points">nach Punkten</option>
+              <option value="name">nach Name</option>
+              <option value="farm">nach freiem Bauernhof</option>
+              <option value="progress">nach Baufortschritt</option>
+            </select>
+          </div>
+          <span class="sub push" id="worldMeta"></span>
+        </div>
+        <div id="worldView" class="grid"></div>
+      </section>
+
+      <!-- Vorlagen -->
+      <section id="tab-templates" class="panel">
+        <div class="cols">
+          <div class="card">
+            <h2>Bauplaene</h2>
+            <p class="hint">Die Liste wird strikt von oben nach unten abgearbeitet. Eine Zeile je Auftrag, Gebaeude und Zielstufe.</p>
+            <div class="row">
+              <select id="buildSelect"></select>
+              <button id="btnNewBuild" class="btn small">Neu</button>
+              <button id="btnCopyBuild" class="btn small">Duplizieren</button>
+              <button id="btnDeleteBuild" class="btn small danger">Loeschen</button>
+            </div>
+            <input id="buildName" type="text" placeholder="Name des Bauplans" />
+            <div class="adder">
+              <select id="buildPickKey"></select>
+              <input id="buildPickLevel" type="number" min="1" max="30" value="10" />
+              <button id="btnAddOrder" class="btn small">Anhaengen</button>
+            </div>
+            <textarea id="buildBody" rows="12" spellcheck="false"></textarea>
+            <div class="row">
+              <button id="btnSaveBuild" class="btn primary small">Speichern</button>
+              <span class="sub" id="buildCount"></span>
+            </div>
+            <p class="hint" id="buildKeys"></p>
+          </div>
+
+          <div class="card">
+            <h2>Truppenplaene</h2>
+            <p class="hint">Zielbestand je Einheit. Truppen unterwegs zaehlen mit.</p>
+            <div class="row">
+              <select id="troopSelect"></select>
+              <button id="btnNewTroop" class="btn small">Neu</button>
+              <button id="btnCopyTroop" class="btn small">Duplizieren</button>
+              <button id="btnDeleteTroop" class="btn small danger">Loeschen</button>
+            </div>
+            <input id="troopName" type="text" placeholder="Name des Truppenplans" />
+            <div class="adder">
+              <select id="troopPickKey"></select>
+              <input id="troopPickAmount" type="number" min="1" value="500" />
+              <button id="btnAddUnit" class="btn small">Anhaengen</button>
+            </div>
+            <textarea id="troopBody" rows="12" spellcheck="false"></textarea>
+            <div class="row">
+              <button id="btnSaveTroop" class="btn primary small">Speichern</button>
+              <span class="sub" id="troopCount"></span>
+            </div>
+            <p class="hint" id="troopKeys"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Einstellungen -->
+      <section id="tab-settings" class="panel">
+        <div class="cols">
+          <div class="stack">
+            <div class="card">
+              <h2>Betriebsart</h2>
+              <label class="check big"><input id="observeOnly" type="checkbox" /> Nur beobachten</label>
+              <p class="hint">Die App liest alles und schreibt ins Protokoll, was sie tun wuerde, klickt aber nichts im Spiel.</p>
+              <label class="field">Vorrang bei Rohstoffen
+                <select id="priority">
+                  <option value="build">Bauplan zuerst</option>
+                  <option value="troops">Truppen zuerst</option>
+                  <option value="alternate">abwechselnd</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="card">
+              <h2>Takt</h2>
+              <div class="fields">
+                <label class="field">Pause minimal in Sekunden<input id="minDelay" type="number" min="10" /></label>
+                <label class="field">Pause maximal in Sekunden<input id="maxDelay" type="number" min="20" /></label>
+                <label class="field">Aktionen pro Stunde<input id="maxActions" type="number" min="1" /></label>
+                <label class="field">Wartezeit je Dorf in Minuten<input id="cooldown" type="number" min="1" /></label>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Welt</h2>
+              <label class="field">Adresse der Welt<input id="host" type="text" /></label>
+              <p class="hint">Wird beim Anmelden automatisch uebernommen.</p>
+              <div class="row">
+                <button id="btnProbe" class="btn small">Status pruefen</button>
+                <button id="btnCapture" class="btn small">Seitenabzug speichern</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="card">
+              <h2>Grenzen</h2>
+              <div class="fields">
+                <label class="field">Bauschleife fuellen bis<input id="keepQueue" type="number" min="1" max="2" /></label>
+                <label class="field">Kleinste Bestellmenge<input id="minBatch" type="number" min="1" /></label>
+                <label class="field">Bauernhof Puffer<input id="farmBuffer" type="number" min="0" /></label>
+              </div>
+              <h3>Rohstoffpuffer</h3>
+              <p class="hint">Diese Mengen bleiben dem Bauplan vorbehalten.</p>
+              <div class="fields three">
+                <label class="field">Holz<input id="bufWood" type="number" min="0" /></label>
+                <label class="field">Lehm<input id="bufStone" type="number" min="0" /></label>
+                <label class="field">Eisen<input id="bufIron" type="number" min="0" /></label>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Sicherungen</h2>
+              <label class="check"><input id="pauseIncoming" type="checkbox" /> Pausieren, solange irgendwo auf dem Konto ein Angriff unterwegs ist</label>
+              <label class="check"><input id="keepAwake" type="checkbox" /> Mac waehrend der Automatik wach halten</label>
+              <label class="check"><input id="nightEnabled" type="checkbox" /> Nachtpause</label>
+              <div class="fields">
+                <label class="field">von Stunde<input id="nightStart" type="number" min="0" max="23" /></label>
+                <label class="field">bis Stunde<input id="nightEnd" type="number" min="0" max="23" /></label>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Mitteilungen</h2>
+              <label class="check"><input id="notifyCaptcha" type="checkbox" /> Botschutz erkannt</label>
+              <label class="check"><input id="notifyLogin" type="checkbox" /> Anmeldung noetig</label>
+              <label class="check"><input id="notifyIncoming" type="checkbox" /> Neue eingehende Angriffe</label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Protokoll -->
+      <section id="tab-log" class="panel">
+        <div class="toolbar card">
+          <div class="chips" id="logFilter">
+            <button class="chip active" data-level="all">Alles</button>
+            <button class="chip" data-level="action">Aktionen</button>
+            <button class="chip" data-level="warn">Warnungen</button>
+          </div>
+          <button id="btnClearLog" class="btn small push">Anzeige leeren</button>
+        </div>
+        <div id="log" class="log card"></div>
+      </section>
+    </main>
   </div>
-
-  <nav class="tabs">
-    <button class="tab active" data-tab="villages">Doerfer</button>
-    <button class="tab" data-tab="world">Weltuebersicht</button>
-    <button class="tab" data-tab="templates">Vorlagen</button>
-    <button class="tab" data-tab="settings">Einstellungen</button>
-    <button class="tab" data-tab="log">Protokoll</button>
-  </nav>
-
-  <main>
-    <section id="tab-villages" class="panel active">
-      <div class="row">
-        <button id="btnScan" class="primary">Welt einlesen</button>
-        <button id="btnProbe">Status pruefen</button>
-        <span class="muted" id="scanHint">Melde dich zuerst im Spielfenster an, danach die Welt einlesen.</span>
-      </div>
-
-      <div class="assignbar">
-        <span class="assigncount" id="selCount">0 Doerfer ausgewaehlt</span>
-        <div class="assigngroup">
-          <select id="assignBuild"></select>
-          <button id="btnAssignBuild">Bauvorlage zuweisen</button>
-        </div>
-        <div class="assigngroup">
-          <select id="assignTroop"></select>
-          <button id="btnAssignTroop">Truppenvorlage zuweisen</button>
-        </div>
-        <div class="assigngroup">
-          <button id="btnActivate">Aktivieren</button>
-          <button id="btnDeactivate">Pausieren</button>
-        </div>
-      </div>
-
-      <table id="villageTable">
-        <thead>
-          <tr>
-            <th class="tick"><input type="checkbox" id="selAll" title="Alle auswaehlen" /></th>
-            <th>Dorf</th><th>Koordinaten</th><th>Punkte</th><th>Bauernhof</th>
-            <th>Bauvorlage</th><th>Bauen</th>
-            <th>Truppenvorlage</th><th>Rekrutieren</th><th>Letzter Durchlauf</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-
-    <section id="tab-world" class="panel">
-      <div class="row">
-        <button id="btnScan2" class="primary">Welt einlesen</button>
-        <span class="muted">Ein Durchgang oeffnet jedes Dorf einmal und liest Gebaeude, Rohstoffe, Bauernhof und Truppen.</span>
-      </div>
-      <div id="worldView"></div>
-    </section>
-
-    <section id="tab-templates" class="panel">
-      <div class="grid2">
-        <div>
-          <h2>Bauvorlagen</h2>
-          <p class="muted">Eine Zeile je Auftrag, Gebaeude und Zielstufe, zum Beispiel <code>wood 10</code>. Die Liste wird strikt von oben nach unten abgearbeitet.</p>
-          <select id="buildSelect"></select>
-          <div class="row tight">
-            <button id="btnNewBuild">Neue Vorlage</button>
-            <button id="btnCopyBuild">Duplizieren</button>
-            <button id="btnDeleteBuild">Loeschen</button>
-          </div>
-          <input id="buildName" type="text" placeholder="Name der Vorlage" />
-          <div class="adder">
-            <select id="buildPickKey"></select>
-            <input id="buildPickLevel" type="number" min="1" max="30" value="10" />
-            <button id="btnAddOrder">Auftrag anhaengen</button>
-          </div>
-          <textarea id="buildBody" rows="14" spellcheck="false"></textarea>
-          <div class="row">
-            <button id="btnSaveBuild" class="primary">Bauvorlage speichern</button>
-            <span class="muted" id="buildCount"></span>
-          </div>
-          <p class="muted" id="buildKeys"></p>
-        </div>
-        <div>
-          <h2>Truppenvorlagen</h2>
-          <p class="muted">Eine Zeile je Einheit mit dem Zielbestand, zum Beispiel <code>axe 7000</code>.</p>
-          <select id="troopSelect"></select>
-          <div class="row tight">
-            <button id="btnNewTroop">Neue Vorlage</button>
-            <button id="btnCopyTroop">Duplizieren</button>
-            <button id="btnDeleteTroop">Loeschen</button>
-          </div>
-          <input id="troopName" type="text" placeholder="Name der Vorlage" />
-          <div class="adder">
-            <select id="troopPickKey"></select>
-            <input id="troopPickAmount" type="number" min="1" value="500" />
-            <button id="btnAddUnit">Einheit anhaengen</button>
-          </div>
-          <textarea id="troopBody" rows="14" spellcheck="false"></textarea>
-          <div class="row">
-            <button id="btnSaveTroop" class="primary">Truppenvorlage speichern</button>
-            <span class="muted" id="troopCount"></span>
-          </div>
-          <p class="muted" id="troopKeys"></p>
-        </div>
-      </div>
-    </section>
-
-    <section id="tab-settings" class="panel">
-      <h2>Betriebsart</h2>
-      <label class="check big"><input id="observeOnly" type="checkbox" /> Nur beobachten, es wird nichts im Spiel geklickt</label>
-      <p class="muted">Im Beobachtungsmodus liest die App alle Seiten und schreibt ins Protokoll, was sie tun wuerde. Erst wenn das sauber aussieht, den Haken entfernen.</p>
-
-      <h2>Welt</h2>
-      <label>Adresse der Welt <input id="host" type="text" /></label>
-      <h2>Takt und Grenzen</h2>
-      <div class="grid3">
-        <label>Pause minimal in Sekunden <input id="minDelay" type="number" min="10" /></label>
-        <label>Pause maximal in Sekunden <input id="maxDelay" type="number" min="20" /></label>
-        <label>Aktionen pro Stunde <input id="maxActions" type="number" min="1" /></label>
-        <label>Wartezeit je Dorf in Minuten <input id="cooldown" type="number" min="1" /></label>
-        <label>Bauschleife fuellen bis <input id="keepQueue" type="number" min="1" max="2" /></label>
-        <label>Bauernhof Puffer <input id="farmBuffer" type="number" min="0" /></label>
-        <label>Kleinste Bestellmenge <input id="minBatch" type="number" min="1" /></label>
-        <label>Vorrang bei Rohstoffen
-          <select id="priority">
-            <option value="build">Bauplan zuerst</option>
-            <option value="troops">Truppen zuerst</option>
-            <option value="alternate">abwechselnd</option>
-          </select>
-        </label>
-        <label>Puffer Holz <input id="bufWood" type="number" min="0" /></label>
-        <label>Puffer Lehm <input id="bufStone" type="number" min="0" /></label>
-        <label>Puffer Eisen <input id="bufIron" type="number" min="0" /></label>
-      </div>
-      <h2>Sicherungen</h2>
-      <label class="check"><input id="pauseIncoming" type="checkbox" /> Durchlauf ueberspringen, solange irgendwo auf dem Konto ein Angriff unterwegs ist</label>
-      <label class="check"><input id="keepAwake" type="checkbox" /> Mac waehrend der Automatik wach halten</label>
-      <label class="check"><input id="nightEnabled" type="checkbox" /> Nachtpause aktiv</label>
-      <div class="grid3">
-        <label>Nachtpause von <input id="nightStart" type="number" min="0" max="23" /></label>
-        <label>Nachtpause bis <input id="nightEnd" type="number" min="0" max="23" /></label>
-      </div>
-      <h2>Mitteilungen auf dem Mac</h2>
-      <label class="check"><input id="notifyCaptcha" type="checkbox" /> Botschutz erkannt</label>
-      <label class="check"><input id="notifyLogin" type="checkbox" /> Anmeldung noetig</label>
-      <label class="check"><input id="notifyIncoming" type="checkbox" /> Neue eingehende Angriffe</label>
-
-      <h2>Fehlersuche</h2>
-      <p class="muted">Ein Seitenabzug speichert die aktuell geoeffnete Spielseite als Datei. Damit lassen sich die Auswahlpfade gegen deine echte Welt pruefen.</p>
-      <div class="row">
-        <button id="btnCapture">Seitenabzug speichern</button>
-      </div>
-    </section>
-
-    <section id="tab-log" class="panel">
-      <div class="row">
-        <button id="btnClearLog">Anzeige leeren</button>
-      </div>
-      <div id="log" class="log"></div>
-    </section>
-  </main>
   <script src="renderer.js"></script>
 </body>
 </html>

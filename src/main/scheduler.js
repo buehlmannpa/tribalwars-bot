@@ -123,13 +123,13 @@ class Scheduler {
     }
     if (probe.captcha) {
       this.notify('Botschutz erkannt', 'Bitte loese das Captcha im Spielfenster. Die Automatik ist angehalten.', 'captcha');
-      this.bridge.createWindow(true);
+      this.bridge.setVisible(true);
       this.stop('Botschutz erkannt, bitte im Spielfenster bestaetigen');
       return;
     }
     if (probe.sessionExpired || !probe.loggedIn) {
       this.notify('Anmeldung noetig', 'Bitte melde dich im Spielfenster neu an.', 'login');
-      this.bridge.createWindow(true);
+      this.bridge.setVisible(true);
       this.stop('Sitzung abgelaufen, bitte im Spielfenster anmelden');
       return;
     }

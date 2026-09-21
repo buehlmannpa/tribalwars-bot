@@ -2,158 +2,370 @@
 
 // Oberflaeche. Sie haelt keinen eigenen Zustand, sondern spiegelt immer das,
 // was der Hauptprozess als Wahrheit fuehrt.
-let state = { config: null, status: null };
+const $ = (id) => document.getElementById(id);
+const state = { config: null, status: null, logs: [], logLevel: 'all' };
 const selected = new Set();
 
-const $ = (id) => document.getElementById(id);
+const BUILDINGS = [
+  ['main', 'Hauptgebaeude', 30], ['barracks', 'Kaserne', 25], ['stable', 'Stall', 20],
+  ['garage', 'Werkstatt', 15], ['church', 'Kirche', 3], ['snob', 'Adelshof', 1],
+  ['smith', 'Schmiede', 20], ['place', 'Versammlungsplatz', 1], ['statue', 'Statue', 1],
+  ['market', 'Marktplatz', 25], ['wood', 'Holzfaeller', 30], ['stone', 'Lehmgrube', 30],
+  ['iron', 'Eisenmine', 30], ['farm', 'Bauernhof', 30], ['storage', 'Speicher', 30],
+  ['hide', 'Versteck', 10], ['wall', 'Wall', 20], ['watchtower', 'Wachturm', 20]
+];
+const UNITS = [
+  ['spear', 'Speertraeger'], ['sword', 'Schwertkaempfer'], ['axe', 'Axtkaempfer'],
+  ['archer', 'Bogenschuetze'], ['spy', 'Spaeher'], ['light', 'Leichte Kavallerie'],
+  ['marcher', 'Berittener Bogenschuetze'], ['heavy', 'Schwere Kavallerie'],
+  ['ram', 'Ramme'], ['catapult', 'Katapult']
+];
+const B_NAME = Object.fromEntries(BUILDINGS.map(([k, n]) => [k, n]));
+const B_MAX = Object.fromEntries(BUILDINGS.map(([k, , m]) => [k, m]));
+const U_NAME = Object.fromEntries(UNITS);
 
-async function refresh() {
-  const data = await window.api.invoke('state:get');
-  state.config = data.config;
-  state.status = data.status;
-  renderAll();
-  for (const entry of data.logs) appendLog(entry);
+const pct = (value, max) => (max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0);
+const nf = (value) => Number(value || 0).toLocaleString('de-CH');
+
+// ---------------------------------------------------------------- Bausteine
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
-function renderAll() {
-  renderStatus(state.status);
-  renderVillages();
-  renderWorld();
-  renderTemplateLists();
-  renderSettings();
-  renderKeyHints();
-  $('world').textContent = state.config.world.label + ' - ' + state.config.world.host;
+// Ein beschrifteter Balken. Er zeigt auf einen Blick, wie weit etwas ist.
+function meter(label, value, max, tone, suffix) {
+  const box = el('div', 'meter');
+  const top = el('div', 'top');
+  top.appendChild(el('span', null, label));
+  const right = el('b', null, suffix !== undefined ? suffix : `${nf(value)} / ${nf(max)}`);
+  top.appendChild(right);
+  const track = el('div', 'track');
+  const fill = el('div', `fill ${tone}`);
+  fill.style.width = `${pct(value, max)}%`;
+  track.appendChild(fill);
+  box.appendChild(top);
+  box.appendChild(track);
+  return box;
 }
+
+// Ein Ring fuer den Gesamtfortschritt eines Plans.
+function ring(percent, caption) {
+  const size = 62;
+  const r = 25;
+  const c = 2 * Math.PI * r;
+  const wrap = el('div', 'ringwrap');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'ring');
+  svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+  svg.innerHTML = `
+    <circle cx="31" cy="31" r="${r}" fill="none" stroke="rgba(74,47,18,.16)" stroke-width="6"/>
+    <circle cx="31" cy="31" r="${r}" fill="none" stroke="#8a5a1c" stroke-width="6"
+      stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c - (c * percent) / 100}"
+      transform="rotate(-90 31 31)"/>
+    <text x="31" y="35" text-anchor="middle">${Math.round(percent)}%</text>`;
+  wrap.appendChild(svg);
+  wrap.appendChild(el('span', null, caption));
+  return wrap;
+}
+
+function buildProgress(village) {
+  const template = state.config.buildTemplates[village.buildTemplate];
+  if (!template || !template.length || !village.levels) return null;
+  const done = template.filter(([key, target]) => Number(village.levels[key] || 0) >= target).length;
+  return { done, total: template.length, percent: pct(done, template.length) };
+}
+
+function troopProgress(village) {
+  const template = state.config.troopTemplates[village.troopTemplate];
+  if (!template || !Object.keys(template).length) return null;
+  const stock = village.units || {};
+  let have = 0;
+  let want = 0;
+  for (const [unit, target] of Object.entries(template)) {
+    want += Number(target);
+    have += Math.min(Number(target), Number(stock[unit] || 0));
+  }
+  return { have, want, percent: pct(have, want) };
+}
+
+// ---------------------------------------------------------------- Kopfzeile
 
 function renderStatus(status) {
-  if (!status) return;
-  state.status = status;
+  if (status) state.status = status;
+  const current = state.status;
+  if (!current) return;
   const badge = $('badge');
-  if (status.running && status.observeOnly) {
+  if (current.running && current.observeOnly) {
     badge.textContent = 'beobachtet';
-    badge.className = 'badge observe';
+    badge.className = 'pill observe';
+  } else if (current.running) {
+    badge.textContent = 'laeuft';
+    badge.className = 'pill running';
   } else {
-    badge.textContent = status.running ? 'laeuft' : 'angehalten';
-    badge.className = 'badge ' + (status.running ? 'running' : 'stopped');
+    badge.textContent = 'angehalten';
+    badge.className = 'pill stopped';
   }
+  $('btnStart').hidden = Boolean(current.running);
+  $('btnStop').hidden = !current.running;
+
   const parts = [];
-  if (status.pauseReason) parts.push(status.pauseReason);
-  if (status.probe && status.probe.features) {
-    parts.push(status.probe.features.premium ? 'Premium aktiv' : 'ohne Premium');
+  if (current.pauseReason) parts.push(current.pauseReason);
+  if (current.probe && current.probe.features) {
+    parts.push(current.probe.features.premium ? 'Premium aktiv' : 'ohne Premium');
   }
-  parts.push(`${status.actionsLastHour} Aktionen in der letzten Stunde`);
-  if (status.running && status.nextTickAt) {
-    const seconds = Math.max(0, Math.round((status.nextTickAt - Date.now()) / 1000));
-    parts.push(`naechster Durchlauf in ${seconds} Sekunden`);
+  parts.push(`${current.actionsLastHour} Aktionen in der letzten Stunde`);
+  if (current.running && current.nextTickAt) {
+    const seconds = Math.max(0, Math.round((current.nextTickAt - Date.now()) / 1000));
+    parts.push(`naechster Durchlauf in ${seconds} s`);
   }
-  $('statusText').textContent = parts.join(' - ');
+  $('statusText').textContent = parts.join(' · ');
 }
+
+// ---------------------------------------------------------------- Doerfer
 
 function renderVillages() {
-  const body = document.querySelector('#villageTable tbody');
+  const box = $('villageList');
+  box.innerHTML = '';
   const villages = Object.values(state.config.villages);
-  body.innerHTML = '';
   for (const id of [...selected]) if (!state.config.villages[id]) selected.delete(id);
+
   if (!villages.length) {
-    const row = document.createElement('tr');
-    row.innerHTML = '<td colspan="10" class="muted">Noch keine Doerfer. Melde dich im Spielfenster an und klicke auf Welt einlesen.</td>';
-    body.appendChild(row);
-    renderSelectionCount();
+    box.appendChild(el('div', 'card empty', 'Noch keine Doerfer. Melde dich in der Spielansicht an und lies die Welt ein.'));
+    renderSelection();
     return;
   }
+
   for (const village of villages.sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
-    const row = document.createElement('tr');
-    if (selected.has(village.id)) row.classList.add('selected');
-    row.appendChild(tickCell(village, row));
-    row.appendChild(cell(village.name || village.id));
-    row.appendChild(cell(village.coords || ''));
-    row.appendChild(cell(village.points ? String(village.points) : '?'));
-    row.appendChild(cell(village.popMax ? `${village.pop} / ${village.popMax}` : '?'));
-    row.appendChild(selectCell(Object.keys(state.config.buildTemplates), village.buildTemplate, (value) => {
-      update(village.id, { buildTemplate: value || null });
-    }));
-    row.appendChild(checkCell(village.buildActive, (checked) => update(village.id, { buildActive: checked })));
-    row.appendChild(selectCell(Object.keys(state.config.troopTemplates), village.troopTemplate, (value) => {
-      update(village.id, { troopTemplate: value || null });
-    }));
-    row.appendChild(checkCell(village.troopActive, (checked) => update(village.id, { troopActive: checked })));
-    row.appendChild(cell(village.lastRun ? new Date(village.lastRun).toLocaleTimeString('de-CH') : 'noch nie'));
-    body.appendChild(row);
+    box.appendChild(villageCard(village));
   }
-  renderSelectionCount();
+  renderSelection();
 }
 
-// Auswahl fuer die Sammelzuweisung
-function tickCell(village, row) {
-  const td = document.createElement('td');
-  td.className = 'tick';
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.checked = selected.has(village.id);
-  input.addEventListener('change', () => {
-    if (input.checked) selected.add(village.id); else selected.delete(village.id);
-    row.classList.toggle('selected', input.checked);
-    renderSelectionCount();
+function villageCard(village) {
+  const card = el('div', 'village');
+  if (selected.has(village.id)) card.classList.add('selected');
+
+  const tick = el('input');
+  tick.type = 'checkbox';
+  tick.checked = selected.has(village.id);
+  tick.addEventListener('change', () => {
+    if (tick.checked) selected.add(village.id); else selected.delete(village.id);
+    card.classList.toggle('selected', tick.checked);
+    renderSelection();
   });
-  td.appendChild(input);
-  return td;
+  card.appendChild(tick);
+
+  const body = el('div');
+  const head = el('div', 'head');
+  head.appendChild(el('span', 'name', village.name || village.id));
+  head.appendChild(el('span', 'coord', village.coords || ''));
+  if (village.points) head.appendChild(el('span', 'badge-soft', `${nf(village.points)} Punkte`));
+  head.appendChild(el('span', `badge-soft ${village.buildActive ? 'on' : 'off'}`, village.buildActive ? 'Bauen an' : 'Bauen aus'));
+  head.appendChild(el('span', `badge-soft ${village.troopActive ? 'on' : 'off'}`, village.troopActive ? 'Rekrutieren an' : 'Rekrutieren aus'));
+  body.appendChild(head);
+
+  const res = village.resources;
+  const meters = el('div', 'meters');
+  if (res) {
+    meters.appendChild(meter('Holz', res.wood, res.storage, res.wood >= res.storage ? 'full' : 'wood'));
+    meters.appendChild(meter('Lehm', res.stone, res.storage, res.stone >= res.storage ? 'full' : 'clay'));
+    meters.appendChild(meter('Eisen', res.iron, res.storage, res.iron >= res.storage ? 'full' : 'iron'));
+  }
+  if (village.popMax) {
+    const free = village.popMax - village.pop;
+    meters.appendChild(meter('Bauernhof', village.pop, village.popMax, free < village.popMax * 0.1 ? 'full' : 'farm', `${nf(free)} frei`));
+  }
+  if (meters.children.length) body.appendChild(meters);
+
+  const plans = el('div', 'plans');
+  plans.appendChild(planSelect(Object.keys(state.config.buildTemplates), village.buildTemplate,
+    (value) => update(village.id, { buildTemplate: value || null }), 'Bauplan'));
+  plans.appendChild(planSelect(Object.keys(state.config.troopTemplates), village.troopTemplate,
+    (value) => update(village.id, { troopTemplate: value || null }), 'Truppenplan'));
+  plans.appendChild(el('span', 'sub', village.lastRun
+    ? `zuletzt ${new Date(village.lastRun).toLocaleTimeString('de-CH')}`
+    : 'noch kein Durchlauf'));
+  body.appendChild(plans);
+  card.appendChild(body);
+
+  const rings = el('div', 'plans');
+  const build = buildProgress(village);
+  const troops = troopProgress(village);
+  if (build) rings.appendChild(ring(build.percent, 'Bauplan'));
+  if (troops) rings.appendChild(ring(troops.percent, 'Truppen'));
+  card.appendChild(rings);
+  return card;
 }
 
-function renderSelectionCount() {
+function planSelect(options, value, onChange, label) {
+  const wrap = el('label', 'field', label);
+  const select = el('select');
+  select.appendChild(new Option('keine', ''));
+  for (const option of options) select.appendChild(new Option(option, option));
+  select.value = value || '';
+  select.addEventListener('change', () => onChange(select.value));
+  wrap.appendChild(select);
+  return wrap;
+}
+
+function renderSelection() {
   const count = selected.size;
   $('selCount').textContent = count === 1 ? '1 Dorf ausgewaehlt' : `${count} Doerfer ausgewaehlt`;
   const all = Object.keys(state.config.villages);
   $('selAll').checked = all.length > 0 && count === all.length;
 }
 
-async function assignToSelection(patch, was) {
-  if (!selected.size) return;
-  state.config = await window.api.invoke('villages:assign', { ids: [...selected], patch });
-  renderVillages();
-  appendLog({ ts: Date.now(), level: 'info', message: `${was} fuer ${selected.size} Doerfer gesetzt` });
-}
-
-function cell(text) {
-  const td = document.createElement('td');
-  td.textContent = text;
-  return td;
-}
-
-function selectCell(options, value, onChange) {
-  const td = document.createElement('td');
-  const select = document.createElement('select');
-  select.appendChild(new Option('keine', ''));
-  for (const option of options) select.appendChild(new Option(option, option));
-  select.value = value || '';
-  select.addEventListener('change', () => onChange(select.value));
-  td.appendChild(select);
-  return td;
-}
-
-function checkCell(checked, onChange) {
-  const td = document.createElement('td');
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.checked = Boolean(checked);
-  input.addEventListener('change', () => onChange(input.checked));
-  td.appendChild(input);
-  return td;
-}
-
 async function update(id, patch) {
   state.config = await window.api.invoke('village:update', { id, patch });
   renderVillages();
+  renderWorld();
 }
 
-// Vorlagen werden als einfache Textzeilen bearbeitet, das ist schneller als
-// jedes Formular und laesst sich kopieren.
-function renderTemplateLists() {
+async function assignToSelection(patch, was) {
+  if (!selected.size) { $('scanHint').textContent = 'Zuerst Doerfer ankreuzen.'; return; }
+  const count = selected.size;
+  state.config = await window.api.invoke('villages:assign', { ids: [...selected], patch });
+  renderVillages();
+  renderWorld();
+  $('scanHint').textContent = `${was} fuer ${count} Doerfer gesetzt.`;
+}
+
+// ---------------------------------------------------------------- Weltuebersicht
+
+function renderWorld() {
+  const box = $('worldView');
+  box.innerHTML = '';
+  let villages = Object.values(state.config.villages);
+  const scanned = villages.filter((v) => v.scannedAt).length;
+  $('worldMeta').textContent = villages.length
+    ? `${scanned} von ${villages.length} Doerfern eingelesen`
+    : '';
+
+  if (!villages.length) {
+    box.appendChild(el('div', 'card empty', 'Noch nichts eingelesen. Melde dich in der Spielansicht an und lies die Welt ein.'));
+    return;
+  }
+
+  const sort = $('worldSort').value;
+  villages = villages.sort((a, b) => {
+    if (sort === 'name') return (a.name || '').localeCompare(b.name || '');
+    if (sort === 'farm') return ((b.popMax || 0) - (b.pop || 0)) - ((a.popMax || 0) - (a.pop || 0));
+    if (sort === 'progress') {
+      const pa = buildProgress(a) ? buildProgress(a).percent : 0;
+      const pb = buildProgress(b) ? buildProgress(b).percent : 0;
+      return pb - pa;
+    }
+    return (b.points || 0) - (a.points || 0);
+  });
+
+  for (const village of villages) box.appendChild(worldCard(village));
+}
+
+function worldCard(village) {
+  const card = el('div', 'card');
+  const head = el('div', 'head');
+  head.appendChild(el('span', 'name', village.name || village.id));
+  head.appendChild(el('span', 'coord', `${village.coords || ''} ${village.continent || ''}`.trim()));
+  card.appendChild(head);
+
+  const top = el('div', 'row');
+  const build = buildProgress(village);
+  const troops = troopProgress(village);
+  if (build) top.appendChild(ring(build.percent, `Bauplan ${build.done}/${build.total}`));
+  if (troops) top.appendChild(ring(troops.percent, 'Truppen'));
+  if (village.points) {
+    const points = el('div', 'ringwrap');
+    points.appendChild(el('b', 'name', nf(village.points)));
+    points.appendChild(el('span', null, 'Punkte'));
+    top.appendChild(points);
+  }
+  card.appendChild(top);
+
+  const res = village.resources;
+  if (res) {
+    const meters = el('div', 'stack');
+    meters.appendChild(meter('Holz', res.wood, res.storage, res.wood >= res.storage ? 'full' : 'wood'));
+    meters.appendChild(meter('Lehm', res.stone, res.storage, res.stone >= res.storage ? 'full' : 'clay'));
+    meters.appendChild(meter('Eisen', res.iron, res.storage, res.iron >= res.storage ? 'full' : 'iron'));
+    if (village.popMax) {
+      meters.appendChild(meter('Bauernhof', village.pop, village.popMax, 'farm', `${nf(village.popMax - village.pop)} frei`));
+    }
+    card.appendChild(meters);
+  }
+
+  if (village.levels && Object.keys(village.levels).length) {
+    card.appendChild(el('h3', null, 'Gebaeude'));
+    const tiles = el('div', 'tiles');
+    for (const [key, name, max] of BUILDINGS) {
+      const level = Number(village.levels[key] || 0);
+      if (!level) continue;
+      const tile = el('div', 'tile');
+      const t = el('div', 't');
+      t.appendChild(el('span', null, name));
+      t.appendChild(el('b', null, String(level)));
+      const track = el('div', 'track');
+      const fill = el('div', `fill ${level >= max ? 'ok' : 'farm'}`);
+      fill.style.width = `${pct(level, max)}%`;
+      track.appendChild(fill);
+      tile.appendChild(t);
+      tile.appendChild(track);
+      tiles.appendChild(tile);
+    }
+    card.appendChild(tiles);
+  }
+
+  const template = state.config.troopTemplates[village.troopTemplate];
+  const stock = village.units || {};
+  const home = village.unitsHome || {};
+  if (Object.keys(stock).length || template) {
+    card.appendChild(el('h3', null, 'Truppen'));
+    const list = el('div', 'stack');
+    const keys = template ? Object.keys(template) : Object.keys(stock);
+    for (const unit of keys) {
+      const have = Number(stock[unit] || 0);
+      const target = template ? Number(template[unit] || 0) : have;
+      if (!have && !target) continue;
+      const away = have - Number(home[unit] || 0);
+      const suffix = target
+        ? `${nf(have)} / ${nf(target)}${away > 0 ? ` · ${nf(away)} unterwegs` : ''}`
+        : `${nf(have)}`;
+      list.appendChild(meter(U_NAME[unit] || unit, have, target || have, have >= target ? 'ok' : 'farm', suffix));
+    }
+    card.appendChild(list);
+  }
+
+  if (village.scannedAt) {
+    card.appendChild(el('p', 'hint', `gelesen um ${new Date(village.scannedAt).toLocaleTimeString('de-CH')}`));
+  }
+  return card;
+}
+
+// ---------------------------------------------------------------- Vorlagen
+
+function renderTemplates() {
   fillSelect($('buildSelect'), Object.keys(state.config.buildTemplates));
   fillSelect($('troopSelect'), Object.keys(state.config.troopTemplates));
   fillAssign($('assignBuild'), Object.keys(state.config.buildTemplates));
   fillAssign($('assignTroop'), Object.keys(state.config.troopTemplates));
+  if (!$('buildPickKey').options.length) {
+    for (const [key, name] of BUILDINGS) $('buildPickKey').appendChild(new Option(name, key));
+    for (const [key, name] of UNITS) $('troopPickKey').appendChild(new Option(name, key));
+  }
+  $('buildKeys').textContent = 'Gueltige Gebaeude: ' + BUILDINGS.map(([k]) => k).join(' ');
+  $('troopKeys').textContent = 'Gueltige Einheiten: ' + UNITS.map(([k]) => k).join(' ');
   loadBuildTemplate();
   loadTroopTemplate();
+}
+
+function fillSelect(select, names) {
+  const current = select.value;
+  select.innerHTML = '';
+  for (const name of names) select.appendChild(new Option(name, name));
+  if (names.includes(current)) select.value = current;
 }
 
 function fillAssign(select, names) {
@@ -162,13 +374,6 @@ function fillAssign(select, names) {
   select.appendChild(new Option('keine Vorlage', ''));
   for (const name of names) select.appendChild(new Option(name, name));
   if (current) select.value = current;
-}
-
-function fillSelect(select, names) {
-  const current = select.value;
-  select.innerHTML = '';
-  for (const name of names) select.appendChild(new Option(name, name));
-  if (names.includes(current)) select.value = current;
 }
 
 function loadBuildTemplate() {
@@ -187,152 +392,52 @@ function loadTroopTemplate() {
   $('troopCount').textContent = `${Object.keys(template).length} Einheiten`;
 }
 
-const BUILD_KEYS = [
-  ['main', 'Hauptgebaeude'], ['barracks', 'Kaserne'], ['stable', 'Stall'], ['garage', 'Werkstatt'],
-  ['church', 'Kirche'], ['snob', 'Adelshof'], ['smith', 'Schmiede'], ['place', 'Versammlungsplatz'],
-  ['statue', 'Statue'], ['market', 'Marktplatz'], ['wood', 'Holzfaeller'], ['stone', 'Lehmgrube'],
-  ['iron', 'Eisenmine'], ['farm', 'Bauernhof'], ['storage', 'Speicher'], ['hide', 'Versteck'],
-  ['wall', 'Wall'], ['watchtower', 'Wachturm']
-];
-const UNIT_KEYS = [
-  ['spear', 'Speertraeger'], ['sword', 'Schwertkaempfer'], ['axe', 'Axtkaempfer'],
-  ['archer', 'Bogenschuetze'], ['spy', 'Spaeher'], ['light', 'Leichte Kavallerie'],
-  ['marcher', 'Berittener Bogenschuetze'], ['heavy', 'Schwere Kavallerie'],
-  ['ram', 'Ramme'], ['catapult', 'Katapult']
-];
-
-function renderKeyHints() {
-  if (!$('buildPickKey').options.length) {
-    for (const [key, name] of BUILD_KEYS) $('buildPickKey').appendChild(new Option(`${name} (${key})`, key));
-    for (const [key, name] of UNIT_KEYS) $('troopPickKey').appendChild(new Option(`${name} (${key})`, key));
-  }
-  $('buildKeys').textContent = 'Gueltige Gebaeude: ' + BUILD_KEYS.map(([k]) => k).join(' ');
-  $('troopKeys').textContent = 'Gueltige Einheiten: ' + UNIT_KEYS.map(([k]) => k).join(' ');
-}
-
-const B_SHORT = {
-  main: 'Hauptgebaeude', barracks: 'Kaserne', stable: 'Stall', garage: 'Werkstatt',
-  church: 'Kirche', snob: 'Adelshof', smith: 'Schmiede', place: 'Versammlungsplatz',
-  statue: 'Statue', market: 'Marktplatz', wood: 'Holzfaeller', stone: 'Lehmgrube',
-  iron: 'Eisenmine', farm: 'Bauernhof', storage: 'Speicher', hide: 'Versteck',
-  wall: 'Wall', watchtower: 'Wachturm'
-};
-const U_SHORT = {
-  spear: 'Speer', sword: 'Schwert', axe: 'Axt', archer: 'Bogen', spy: 'Spaeher',
-  light: 'LKav', marcher: 'BBogen', heavy: 'SKav', ram: 'Ramme', catapult: 'Kata',
-  knight: 'Paladin', snob: 'Adel', militia: 'Miliz'
-};
-
-// Die Weltuebersicht zeigt, was beim Einlesen gefunden wurde.
-function renderWorld() {
-  const box = $('worldView');
-  const villages = Object.values(state.config.villages)
-    .sort((a, b) => (b.points || 0) - (a.points || 0));
-  box.innerHTML = '';
-  if (!villages.length) {
-    box.innerHTML = '<p class="muted">Noch nichts eingelesen. Melde dich im Spielfenster an und klicke auf Welt einlesen.</p>';
-    return;
-  }
-  for (const village of villages) {
-    const card = document.createElement('div');
-    card.className = 'vcard';
-
-    const title = document.createElement('h3');
-    title.textContent = village.name || village.id;
-    card.appendChild(title);
-
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    const parts = [village.coords || '', village.continent || ''];
-    if (village.points) parts.push(`${village.points} Punkte`);
-    if (village.popMax) parts.push(`Bauernhof ${village.pop} von ${village.popMax}`);
-    if (village.resources) {
-      parts.push(`Holz ${village.resources.wood}, Lehm ${village.resources.stone}, Eisen ${village.resources.iron} von ${village.resources.storage}`);
-    }
-    if (village.scannedAt) parts.push(`gelesen um ${new Date(village.scannedAt).toLocaleTimeString('de-CH')}`);
-    meta.textContent = parts.filter(Boolean).join(' · ');
-    card.appendChild(meta);
-
-    card.appendChild(chipBlock('Gebaeude', village.levels, B_SHORT, 'noch nicht eingelesen'));
-    card.appendChild(chipBlock('Truppen daheim', village.unitsHome, U_SHORT, 'keine Einheiten daheim'));
-    card.appendChild(chipBlock('Truppen gesamt', village.units, U_SHORT, 'keine Einheiten'));
-    box.appendChild(card);
-  }
-}
-
-function chipBlock(label, values, names, emptyText) {
-  const block = document.createElement('div');
-  block.className = 'block';
-  const head = document.createElement('b');
-  head.textContent = label;
-  block.appendChild(head);
-  const chips = document.createElement('div');
-  chips.className = 'chips';
-  const entries = Object.entries(values || {}).filter(([, value]) => Number(value) > 0);
-  if (!entries.length) {
-    const chip = document.createElement('span');
-    chip.className = 'chip empty';
-    chip.textContent = emptyText;
-    chips.appendChild(chip);
-  }
-  for (const [key, value] of entries) {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.textContent = `${names[key] || key} ${value}`;
-    chips.appendChild(chip);
-  }
-  block.appendChild(chips);
-  return block;
-}
+// ---------------------------------------------------------------- Einstellungen
 
 function renderSettings() {
   const a = state.config.automation;
   $('observeBanner').hidden = !a.observeOnly;
+  $('observeOnly').checked = a.observeOnly;
   $('host').value = state.config.world.host;
   $('minDelay').value = a.minDelaySeconds;
   $('maxDelay').value = a.maxDelaySeconds;
   $('maxActions').value = a.maxActionsPerHour;
   $('cooldown').value = a.villageCooldownMinutes;
   $('keepQueue').value = a.keepQueueFilled;
-  $('farmBuffer').value = a.farmBuffer;
   $('minBatch').value = a.minRecruitBatch;
+  $('farmBuffer').value = a.farmBuffer;
   $('priority').value = a.priority;
   $('bufWood').value = a.resourceBuffer.wood;
   $('bufStone').value = a.resourceBuffer.stone;
   $('bufIron').value = a.resourceBuffer.iron;
-  $('observeOnly').checked = a.observeOnly;
-  $('notifyCaptcha').checked = a.notifications.captcha;
-  $('notifyLogin').checked = a.notifications.login;
-  $('notifyIncoming').checked = a.notifications.incoming;
   $('pauseIncoming').checked = a.pauseOnIncoming;
   $('keepAwake').checked = a.keepAwake;
   $('nightEnabled').checked = a.nightPause.enabled;
   $('nightStart').value = a.nightPause.startHour;
   $('nightEnd').value = a.nightPause.endHour;
+  $('notifyCaptcha').checked = a.notifications.captcha;
+  $('notifyLogin').checked = a.notifications.login;
+  $('notifyIncoming').checked = a.notifications.incoming;
+  $('world').textContent = `${state.config.world.label} · ${state.config.world.host}`;
 }
 
 async function saveSettings() {
   state.config = await window.api.invoke('config:patch', {
     world: { host: $('host').value.trim() },
     automation: {
+      observeOnly: $('observeOnly').checked,
       minDelaySeconds: Number($('minDelay').value),
       maxDelaySeconds: Number($('maxDelay').value),
       maxActionsPerHour: Number($('maxActions').value),
       villageCooldownMinutes: Number($('cooldown').value),
       keepQueueFilled: Number($('keepQueue').value),
-      farmBuffer: Number($('farmBuffer').value),
       minRecruitBatch: Number($('minBatch').value),
+      farmBuffer: Number($('farmBuffer').value),
       priority: $('priority').value,
       resourceBuffer: {
         wood: Number($('bufWood').value),
         stone: Number($('bufStone').value),
         iron: Number($('bufIron').value)
-      },
-      observeOnly: $('observeOnly').checked,
-      notifications: {
-        captcha: $('notifyCaptcha').checked,
-        login: $('notifyLogin').checked,
-        incoming: $('notifyIncoming').checked
       },
       pauseOnIncoming: $('pauseIncoming').checked,
       keepAwake: $('keepAwake').checked,
@@ -340,47 +445,54 @@ async function saveSettings() {
         enabled: $('nightEnabled').checked,
         startHour: Number($('nightStart').value),
         endHour: Number($('nightEnd').value)
+      },
+      notifications: {
+        captcha: $('notifyCaptcha').checked,
+        login: $('notifyLogin').checked,
+        incoming: $('notifyIncoming').checked
       }
     }
   });
+  renderSettings();
+  renderStatus();
 }
+
+// ---------------------------------------------------------------- Protokoll
 
 function appendLog(entry) {
-  const log = $('log');
-  const line = document.createElement('div');
-  line.className = entry.level;
-  const time = new Date(entry.ts).toLocaleTimeString('de-CH');
-  line.textContent = `${time}  ${entry.message}`;
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
+  state.logs.push(entry);
+  if (state.logs.length > 400) state.logs.shift();
+  renderLog();
 }
 
-// Ereignisse verdrahten
-document.querySelectorAll('.tab').forEach((tab) => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
-    tab.classList.add('active');
-    $('tab-' + tab.dataset.tab).classList.add('active');
+function renderLog() {
+  const box = $('log');
+  const wanted = state.logLevel;
+  const rows = state.logs.filter((entry) => {
+    if (wanted === 'all') return true;
+    if (wanted === 'action') return entry.level === 'action';
+    return entry.level === 'warn' || entry.level === 'error';
   });
-});
+  box.innerHTML = '';
+  if (!rows.length) {
+    box.appendChild(el('div', 'empty', 'Noch nichts zu berichten.'));
+    return;
+  }
+  for (const entry of rows.slice(-200)) {
+    const line = el('p');
+    line.appendChild(el('time', null, new Date(entry.ts).toLocaleTimeString('de-CH')));
+    line.appendChild(el('span', entry.level, entry.message));
+    box.appendChild(line);
+  }
+  box.scrollTop = box.scrollHeight;
+}
 
-$('btnStart').addEventListener('click', async () => renderStatus(await window.api.invoke('automation:start')));
-$('btnStop').addEventListener('click', async () => renderStatus(await window.api.invoke('automation:stop')));
-$('btnGame').addEventListener('click', () => window.api.invoke('window:game'));
-$('btnGoLive').addEventListener('click', async () => {
-  state.config = await window.api.invoke('config:patch', { automation: { observeOnly: false } });
-  renderSettings();
-  appendLog({ ts: Date.now(), level: 'warn', message: 'Beobachtungsmodus ausgeschaltet, die App handelt ab jetzt selbstaendig' });
-});
-$('btnProbe').addEventListener('click', () => window.api.invoke('probe'));
-$('btnCapture').addEventListener('click', () => window.api.invoke('capture', { label: 'seite' }));
-$('btnClearLog').addEventListener('click', () => { $('log').innerHTML = ''; });
+// ---------------------------------------------------------------- Welt einlesen
 
-async function scanWorld(button) {
-  const labels = ['btnScan', 'btnScan2'];
-  for (const id of labels) $(id).disabled = true;
-  $('scanHint').textContent = 'Welt wird eingelesen, das Spielfenster arbeitet im Hintergrund.';
+async function scanWorld() {
+  const buttons = ['btnScan', 'btnScan2'];
+  for (const id of buttons) $(id).disabled = true;
+  $('scanHint').textContent = 'Welt wird eingelesen.';
   try {
     const result = await window.api.invoke('world:scan');
     if (result && result.config) {
@@ -392,110 +504,86 @@ async function scanWorld(button) {
       $('scanHint').textContent = result && result.error ? result.error : 'Einlesen fehlgeschlagen.';
     }
   } finally {
-    for (const id of labels) $(id).disabled = false;
+    for (const id of buttons) $(id).disabled = false;
   }
 }
 
-$('btnScan').addEventListener('click', () => scanWorld());
-$('btnScan2').addEventListener('click', () => scanWorld());
+// ---------------------------------------------------------------- Start
 
-window.api.on('scan', (progress) => {
-  if (!progress) return;
-  $('scanHint').textContent = progress.village
-    ? `Lese ${progress.village}, Dorf ${progress.done + 1} von ${progress.total}`
-    : `${progress.total} Doerfer gelesen`;
-});
-
-$('buildSelect').addEventListener('change', loadBuildTemplate);
-$('troopSelect').addEventListener('change', loadTroopTemplate);
-
-$('btnSaveBuild').addEventListener('click', async () => {
-  const name = $('buildName').value.trim();
-  if (!name) return;
-  const value = $('buildBody').value.split('\n')
-    .map((line) => line.trim()).filter(Boolean)
-    .map((line) => { const [key, level] = line.split(/\s+/); return [key, Number(level)]; })
-    .filter(([key, level]) => key && Number.isFinite(level));
-  state.config = await window.api.invoke('template:save', { kind: 'build', name, value });
-  renderTemplateLists();
+function renderAll() {
+  renderSettings();
+  renderTemplates();
   renderVillages();
-});
-
-$('btnDeleteBuild').addEventListener('click', async () => {
-  state.config = await window.api.invoke('template:delete', { kind: 'build', name: $('buildSelect').value });
-  renderTemplateLists();
-  renderVillages();
-});
-
-$('btnSaveTroop').addEventListener('click', async () => {
-  const name = $('troopName').value.trim();
-  if (!name) return;
-  const value = {};
-  for (const line of $('troopBody').value.split('\n')) {
-    const [key, amount] = line.trim().split(/\s+/);
-    if (key && Number.isFinite(Number(amount))) value[key] = Number(amount);
-  }
-  state.config = await window.api.invoke('template:save', { kind: 'troop', name, value });
-  renderTemplateLists();
-  renderVillages();
-});
-
-$('btnDeleteTroop').addEventListener('click', async () => {
-  state.config = await window.api.invoke('template:delete', { kind: 'troop', name: $('troopSelect').value });
-  renderTemplateLists();
-  renderVillages();
-});
-
-for (const id of ['host', 'minDelay', 'maxDelay', 'maxActions', 'cooldown', 'keepQueue', 'farmBuffer',
-  'minBatch', 'priority', 'bufWood', 'bufStone', 'bufIron', 'observeOnly',
-  'notifyCaptcha', 'notifyLogin', 'notifyIncoming',
-  'pauseIncoming', 'keepAwake', 'nightEnabled', 'nightStart', 'nightEnd']) {
-  $(id).addEventListener('change', saveSettings);
+  renderWorld();
+  renderStatus();
 }
 
-// Sammelzuweisung
+async function refresh() {
+  const data = await window.api.invoke('state:get');
+  state.config = data.config;
+  state.status = data.status;
+  state.logs = data.logs || [];
+  document.documentElement.style.setProperty('--game-width', `${data.gameWidth || 0}px`);
+  renderAll();
+  renderLog();
+}
+
+document.querySelectorAll('.seg').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.seg').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+    tab.classList.add('active');
+    $('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+$('btnStart').addEventListener('click', async () => renderStatus(await window.api.invoke('automation:start')));
+$('btnStop').addEventListener('click', async () => renderStatus(await window.api.invoke('automation:stop')));
+$('btnGame').addEventListener('click', () => window.api.invoke('window:game'));
+$('btnProbe').addEventListener('click', () => window.api.invoke('probe'));
+$('btnCapture').addEventListener('click', () => window.api.invoke('capture', { label: 'seite' }));
+$('btnScan').addEventListener('click', scanWorld);
+$('btnScan2').addEventListener('click', scanWorld);
+$('worldSort').addEventListener('change', renderWorld);
+$('btnClearLog').addEventListener('click', () => { state.logs = []; renderLog(); });
+
+$('btnGoLive').addEventListener('click', async () => {
+  state.config = await window.api.invoke('config:patch', { automation: { observeOnly: false } });
+  renderSettings();
+  appendLog({ ts: Date.now(), level: 'warn', message: 'Beobachtungsmodus ausgeschaltet, die App handelt ab jetzt selbstaendig' });
+});
+
+$('logFilter').addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip');
+  if (!chip) return;
+  document.querySelectorAll('#logFilter .chip').forEach((c) => c.classList.remove('active'));
+  chip.classList.add('active');
+  state.logLevel = chip.dataset.level;
+  renderLog();
+});
+
 $('selAll').addEventListener('change', () => {
   selected.clear();
   if ($('selAll').checked) for (const id of Object.keys(state.config.villages)) selected.add(id);
   renderVillages();
 });
-$('btnAssignBuild').addEventListener('click', () =>
-  assignToSelection({ buildTemplate: $('assignBuild').value || null }, 'Bauvorlage'));
-$('btnAssignTroop').addEventListener('click', () =>
-  assignToSelection({ troopTemplate: $('assignTroop').value || null }, 'Truppenvorlage'));
-$('btnActivate').addEventListener('click', () =>
-  assignToSelection({ buildActive: true, troopActive: true }, 'Automatik aktiv'));
-$('btnDeactivate').addEventListener('click', () =>
-  assignToSelection({ buildActive: false, troopActive: false }, 'Automatik pausiert'));
+$('btnAssignBuild').addEventListener('click', () => assignToSelection({ buildTemplate: $('assignBuild').value || null }, 'Bauplan'));
+$('btnAssignTroop').addEventListener('click', () => assignToSelection({ troopTemplate: $('assignTroop').value || null }, 'Truppenplan'));
+$('btnActivate').addEventListener('click', () => assignToSelection({ buildActive: true, troopActive: true }, 'Automatik aktiv'));
+$('btnDeactivate').addEventListener('click', () => assignToSelection({ buildActive: false, troopActive: false }, 'Automatik pausiert'));
 
-// Vorlagen verwalten
-$('btnNewBuild').addEventListener('click', () => {
-  $('buildName').value = '';
-  $('buildBody').value = '';
-  $('buildCount').textContent = 'neue Vorlage';
-  $('buildName').focus();
-});
-$('btnCopyBuild').addEventListener('click', () => {
-  $('buildName').value = ($('buildSelect').value || 'Vorlage') + ' Kopie';
-  $('buildCount').textContent = 'Kopie, noch nicht gespeichert';
-  $('buildName').focus();
-});
+$('buildSelect').addEventListener('change', loadBuildTemplate);
+$('troopSelect').addEventListener('change', loadTroopTemplate);
+$('btnNewBuild').addEventListener('click', () => { $('buildName').value = ''; $('buildBody').value = ''; $('buildName').focus(); });
+$('btnCopyBuild').addEventListener('click', () => { $('buildName').value = ($('buildSelect').value || 'Vorlage') + ' Kopie'; $('buildName').focus(); });
+$('btnNewTroop').addEventListener('click', () => { $('troopName').value = ''; $('troopBody').value = ''; $('troopName').focus(); });
+$('btnCopyTroop').addEventListener('click', () => { $('troopName').value = ($('troopSelect').value || 'Vorlage') + ' Kopie'; $('troopName').focus(); });
+
 $('btnAddOrder').addEventListener('click', () => {
   const line = `${$('buildPickKey').value} ${Number($('buildPickLevel').value)}`;
   const body = $('buildBody');
   body.value = body.value.trim() ? `${body.value.replace(/\n+$/, '')}\n${line}` : line;
   body.scrollTop = body.scrollHeight;
-});
-$('btnNewTroop').addEventListener('click', () => {
-  $('troopName').value = '';
-  $('troopBody').value = '';
-  $('troopCount').textContent = 'neue Vorlage';
-  $('troopName').focus();
-});
-$('btnCopyTroop').addEventListener('click', () => {
-  $('troopName').value = ($('troopSelect').value || 'Vorlage') + ' Kopie';
-  $('troopCount').textContent = 'Kopie, noch nicht gespeichert';
-  $('troopName').focus();
 });
 $('btnAddUnit').addEventListener('click', () => {
   const key = $('troopPickKey').value;
@@ -505,8 +593,60 @@ $('btnAddUnit').addEventListener('click', () => {
   $('troopBody').value = lines.join('\n');
 });
 
+$('btnSaveBuild').addEventListener('click', async () => {
+  const name = $('buildName').value.trim();
+  if (!name) return;
+  const value = $('buildBody').value.split('\n')
+    .map((line) => line.trim()).filter(Boolean)
+    .map((line) => { const [key, level] = line.split(/\s+/); return [key, Number(level)]; })
+    .filter(([key, level]) => B_NAME[key] && Number.isFinite(level));
+  state.config = await window.api.invoke('template:save', { kind: 'build', name, value });
+  renderTemplates();
+  renderVillages();
+  renderWorld();
+});
+$('btnDeleteBuild').addEventListener('click', async () => {
+  state.config = await window.api.invoke('template:delete', { kind: 'build', name: $('buildSelect').value });
+  renderTemplates();
+  renderVillages();
+});
+$('btnSaveTroop').addEventListener('click', async () => {
+  const name = $('troopName').value.trim();
+  if (!name) return;
+  const value = {};
+  for (const line of $('troopBody').value.split('\n')) {
+    const [key, amount] = line.trim().split(/\s+/);
+    if (U_NAME[key] && Number.isFinite(Number(amount))) value[key] = Number(amount);
+  }
+  state.config = await window.api.invoke('template:save', { kind: 'troop', name, value });
+  renderTemplates();
+  renderVillages();
+  renderWorld();
+});
+$('btnDeleteTroop').addEventListener('click', async () => {
+  state.config = await window.api.invoke('template:delete', { kind: 'troop', name: $('troopSelect').value });
+  renderTemplates();
+  renderVillages();
+});
+
+for (const id of ['host', 'minDelay', 'maxDelay', 'maxActions', 'cooldown', 'keepQueue', 'minBatch',
+  'farmBuffer', 'priority', 'bufWood', 'bufStone', 'bufIron', 'observeOnly',
+  'pauseIncoming', 'keepAwake', 'nightEnabled', 'nightStart', 'nightEnd',
+  'notifyCaptcha', 'notifyLogin', 'notifyIncoming']) {
+  $(id).addEventListener('change', saveSettings);
+}
+
 window.api.on('status', renderStatus);
 window.api.on('log', appendLog);
-setInterval(() => renderStatus(state.status), 1000);
+window.api.on('scan', (progress) => {
+  if (!progress) return;
+  $('scanHint').textContent = progress.village
+    ? `Lese ${progress.village}, Dorf ${progress.done + 1} von ${progress.total}`
+    : `${progress.total} Doerfer gelesen`;
+});
+window.api.on('layout', (info) => {
+  document.documentElement.style.setProperty('--game-width', `${info && info.gameWidth ? info.gameWidth : 0}px`);
+});
 
+setInterval(() => renderStatus(), 1000);
 refresh();

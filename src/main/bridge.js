@@ -2,7 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { BrowserWindow, app } = require('electron');
+const { WebContentsView, app } = require('electron');
 const scripts = require('./pageScripts');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -14,7 +14,10 @@ class Bridge {
   constructor({ store, logger }) {
     this.store = store;
     this.logger = logger;
-    this.win = null;
+    this.view = null;
+    this.parent = null;
+    this.visible = false;
+    this.onLayout = null;
     this.busy = false;
     this.quitting = false;
     this.capturedUnconfirmed = false;
@@ -24,16 +27,21 @@ class Bridge {
     return this.store.get().world.host.replace(/\/+$/, '');
   }
 
-  createWindow(show = true) {
-    if (this.win && !this.win.isDestroyed()) {
-      if (show) this.win.show();
-      return this.win;
+  // Die Spielansicht ist keine eigene Fenster mehr, sondern eine Flaeche im
+  // Hauptfenster. Geschlossen sitzt sie knapp ausserhalb des sichtbaren
+  // Bereichs, damit die Seite ihre normale Groesse behaelt und weiterarbeitet.
+  attachTo(parent) {
+    this.parent = parent;
+    // Wird das Hauptfenster geschlossen, geht die Flaeche mit. Dann wird beim
+    // naechsten Oeffnen eine neue gebaut, die Anmeldung bleibt gespeichert.
+    if (this.view && this.view.webContents.isDestroyed()) this.view = null;
+    if (this.view) {
+      parent.contentView.addChildView(this.view);
+      this.layout();
+      return this.view;
     }
-    this.win = new BrowserWindow({
-      width: 1280,
-      height: 900,
-      show,
-      title: 'Spielfenster',
+
+    this.view = new WebContentsView({
       webPreferences: {
         partition: 'persist:staemme',
         backgroundThrottling: false,
@@ -41,53 +49,61 @@ class Bridge {
         nodeIntegration: false
       }
     });
-    // Das Spielfenster laesst sich schliessen, es verschwindet dann nur aus
-    // dem Blickfeld. Die Anmeldung und die laufende Arbeit bleiben bestehen.
-    this.win.on('close', (event) => {
-      if (this.quitting) return;
-      event.preventDefault();
-      this.win.hide();
-      this.logger.info('Spielfenster in den Hintergrund gelegt, die Arbeit laeuft weiter');
-    });
-    this.win.on('closed', () => { this.win = null; });
-    this.win.loadURL(isWorldHost(this.host)
+    parent.contentView.addChildView(this.view);
+    this.layout();
+    this.view.webContents.loadURL(isWorldHost(this.host)
       ? `${this.host}/game.php?screen=overview_villages&mode=prod`
       : `${this.host}/`);
-    return this.win;
+    parent.on('resize', () => this.layout());
+    return this.view;
   }
 
-  async ensureWindow() {
-    if (!this.win || this.win.isDestroyed()) this.createWindow(false);
-    return this.win;
+  get webContents() {
+    return this.view && !this.view.webContents.isDestroyed() ? this.view.webContents : null;
+  }
+
+  // Breite der Spielansicht im geteilten Fenster.
+  splitWidth() {
+    if (!this.parent) return 0;
+    const [width] = this.parent.getContentSize();
+    return Math.max(460, Math.round(width * 0.5));
+  }
+
+  layout() {
+    if (!this.view || !this.parent) return 0;
+    const [width, height] = this.parent.getContentSize();
+    const split = this.splitWidth();
+    const x = this.visible ? width - split : width + 40;
+    this.view.setBounds({ x, y: 0, width: split, height });
+    const reserved = this.visible ? split : 0;
+    if (this.onLayout) this.onLayout(reserved);
+    return reserved;
   }
 
   setVisible(visible) {
-    const win = this.win && !this.win.isDestroyed() ? this.win : this.createWindow(visible);
-    if (visible) win.show(); else win.hide();
-    return { ok: true, visible };
+    this.visible = Boolean(visible);
+    this.layout();
+    return { ok: true, visible: this.visible, width: this.visible ? this.splitWidth() : 0 };
   }
 
   isVisible() {
-    return Boolean(this.win && !this.win.isDestroyed() && this.win.isVisible());
+    return Boolean(this.visible);
   }
 
-  // Ohne bekannte Welt fuehrt jede Navigation ins Leere. Deshalb wird vor dem
-  // ersten Seitenaufruf geprueft, wo die angemeldete Sitzung steht.
-  async ensureWorld() {
-    if (isWorldHost(this.host)) return { ok: true, host: this.host };
-    const probe = await this.exec(scripts.PROBE);
-    this.adoptWorld(probe);
-    if (isWorldHost(this.host)) return { ok: true, host: this.host };
-    return {
-      ok: false,
-      error: 'Keine Welt erkannt. Bitte im Spielfenster eine Welt waehlen und anmelden.'
-    };
+  // Bleibt aus Gruenden der Vertraeglichkeit bestehen, zeigt die Ansicht.
+  createWindow(show = true) {
+    return this.setVisible(show);
+  }
+
+  async ensureWindow() {
+    return this.view;
   }
 
   async exec(script) {
-    const win = await this.ensureWindow();
+    const contents = this.webContents;
+    if (!contents) return { ok: false, error: 'Spielansicht ist nicht bereit' };
     try {
-      return await win.webContents.executeJavaScript(script, true);
+      return await contents.executeJavaScript(script, true);
     } catch (err) {
       return { ok: false, error: String(err.message || err) };
     }
@@ -97,12 +113,13 @@ class Bridge {
   async navigate(screen, villageId, params = {}) {
     const world = await this.ensureWorld();
     if (!world.ok) return world;
-    const win = await this.ensureWindow();
+    const contents = this.webContents;
+    if (!contents) return { ok: false, error: 'Spielansicht ist nicht bereit' };
     const query = new URLSearchParams({ screen, ...params });
     if (villageId) query.set('village', String(villageId));
     const url = `${this.host}/game.php?${query.toString()}`;
     try {
-      await win.webContents.loadURL(url);
+      await contents.loadURL(url);
     } catch (err) {
       this.logger.warn(`Seite konnte nicht geladen werden: ${err.message}`);
     }

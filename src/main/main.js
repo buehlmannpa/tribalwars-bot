@@ -15,10 +15,14 @@ let dashboard;
 
 function createDashboard() {
   dashboard = new BrowserWindow({
-    width: 1180,
-    height: 820,
-    minWidth: 900,
+    width: 1320,
+    height: 880,
+    minWidth: 1000,
+    minHeight: 640,
     title: 'Staemme Manager',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 18, y: 20 },
+    backgroundColor: '#1b1712',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -28,6 +32,7 @@ function createDashboard() {
   });
   dashboard.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   dashboard.on('closed', () => { dashboard = null; });
+  return dashboard;
 }
 
 function send(channel, payload) {
@@ -43,7 +48,7 @@ function buildMenu() {
         { label: 'Automatik starten', accelerator: 'Cmd+R', click: () => scheduler.start() },
         { label: 'Automatik anhalten', accelerator: 'Cmd+.', click: () => scheduler.stop('Von Hand angehalten') },
         { type: 'separator' },
-        { label: 'Spielfenster zeigen', accelerator: 'Cmd+G', click: () => bridge.createWindow(true) }
+        { label: 'Spielansicht ein und ausblenden', accelerator: 'Cmd+G', click: () => toggleGame() }
       ]
     },
     { role: 'editMenu' },
@@ -62,11 +67,20 @@ app.whenReady().then(() => {
   logger.onEntry((entry) => send('log', entry));
   createDashboard();
   buildMenu();
-  bridge.createWindow(true);
+
+  // Die Spielansicht sitzt im selben Fenster. Die Oberflaeche erfaehrt, wie
+  // viel Platz sie rechts frei lassen muss.
+  bridge.onLayout = (reserved) => send('layout', { gameWidth: reserved });
+  bridge.attachTo(dashboard);
+  bridge.setVisible(true);
   logger.info('App gestartet. Melde dich im Spielfenster an, danach die Doerfer einlesen.');
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createDashboard();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createDashboard();
+      bridge.attachTo(dashboard);
+      bridge.setVisible(bridge.isVisible());
+    }
   });
 });
 
@@ -82,7 +96,8 @@ app.on('before-quit', () => {
 ipcMain.handle('state:get', () => ({
   config: store.get(),
   status: scheduler.status(),
-  logs: logger.history()
+  logs: logger.history(),
+  gameWidth: bridge.isVisible() ? bridge.splitWidth() : 0
 }));
 
 ipcMain.handle('automation:start', () => scheduler.start());
@@ -90,7 +105,14 @@ ipcMain.handle('automation:stop', () => scheduler.stop('Von Hand angehalten'));
 
 ipcMain.handle('config:patch', (_event, patch) => store.patch(patch));
 
-ipcMain.handle('window:game', () => bridge.setVisible(!bridge.isVisible()));
+function toggleGame() {
+  const result = bridge.setVisible(!bridge.isVisible());
+  send('status', scheduler.status());
+  return result;
+}
+
+ipcMain.handle('window:game', () => toggleGame());
+ipcMain.handle('window:gameVisible', () => ({ ok: true, visible: bridge.isVisible() }));
 
 // Welt einlesen: erst die Dorfliste, danach jedes Dorf einmal oeffnen und
 // Gebaeudestufen, Rohstoffe, Bauernhof und Truppenbestand mitnehmen.

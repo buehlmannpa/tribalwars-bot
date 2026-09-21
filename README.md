@@ -14,10 +14,11 @@ Accounts. Der Entscheid liegt bei dir.
 
 ## Was die App kann
 
-1. Eigenes Spielfenster mit dauerhaft gespeicherter Anmeldung, du kannst darin
-   jederzeit selbst spielen und eingreifen. Es laesst sich schliessen, dann
-   arbeitet es unsichtbar weiter, und mit dem Knopf Spielfenster holst du es
-   zurueck.
+1. Die Spielansicht sitzt im selben Fenster. Mit dem Knopf Spielansicht oder
+   mit Befehlstaste und G teilst du das Fenster, links das Dashboard, rechts
+   das Spiel. Ausgeblendet arbeitet die Ansicht unsichtbar weiter, die
+   Anmeldung bleibt dauerhaft gespeichert und du kannst jederzeit selbst
+   spielen und eingreifen.
 2. Die Welt wird beim ersten Anmelden automatisch aus dem Spielfenster
    uebernommen, egal ob Schweiz, Deutschland oder eine andere Landesfassung.
 3. **Welt einlesen** mit einem Knopf: die App liest die Dorfliste und danach
@@ -100,6 +101,20 @@ nichts im Spiel.
    Protokollzeile beginnt mit nur beobachtet.
 
 Zum Anhalten genuegt der Knopf Anhalten oder Befehlstaste und Punkt.
+
+## Oberflaeche
+
+Die App ist in den Farben von Die Staemme gehalten, Pergament und Holz,
+kombiniert mit den weichen Glasflaechen und runden Formen von Apple. Zahlen
+erscheinen als Balken und Ringe, nicht als nackter Text:
+
+| Ansicht | Inhalt |
+|---|---|
+| Doerfer | Zuweisung der Plaene, Rohstoff und Bauernhof Balken, Fortschrittsringe |
+| Weltuebersicht | Karte je Dorf mit Gebaeuden als Kacheln und Truppen gegen den Zielbestand, sortierbar |
+| Vorlagen | Bau und Truppenplaene anlegen, duplizieren, bearbeiten |
+| Einstellungen | Betriebsart, Takt, Grenzen, Sicherungen, Mitteilungen |
+| Protokoll | gefiltert nach allem, Aktionen oder Warnungen |
 
 ## Einstellungen, die du kennen solltest
 
