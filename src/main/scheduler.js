@@ -20,6 +20,8 @@ class Scheduler {
     this.pauseReason = null;
     this.actionTimes = [];
     this.lastProbe = null;
+    this.lastReport = {};
+    this.lastIncoming = 0;
     this.nextTickAt = null;
     this.powerBlockerId = null;
   }
@@ -27,6 +29,7 @@ class Scheduler {
   status() {
     return {
       running: this.running,
+      observeOnly: Boolean(this.store.get().automation.observeOnly),
       pauseReason: this.pauseReason,
       nextTickAt: this.nextTickAt,
       actionsLastHour: this.actionsLastHour(),
@@ -44,7 +47,9 @@ class Scheduler {
     this.pauseReason = null;
     this.store.patch({ automation: { enabled: true } });
     this.keepAwake(true);
-    this.logger.info('Automatik gestartet');
+    this.logger.info(this.store.get().automation.observeOnly
+      ? 'Automatik gestartet im Modus nur beobachten, es wird nichts geklickt'
+      : 'Automatik gestartet, sie handelt jetzt selbstaendig');
     this.loop();
     this.emit();
     return this.status();
@@ -117,19 +122,24 @@ class Scheduler {
       return;
     }
     if (probe.captcha) {
-      this.notify('Botschutz erkannt', 'Bitte loese das Captcha im Spielfenster. Die Automatik ist angehalten.');
+      this.notify('Botschutz erkannt', 'Bitte loese das Captcha im Spielfenster. Die Automatik ist angehalten.', 'captcha');
       this.bridge.createWindow(true);
       this.stop('Botschutz erkannt, bitte im Spielfenster bestaetigen');
       return;
     }
     if (probe.sessionExpired || !probe.loggedIn) {
-      this.notify('Anmeldung noetig', 'Bitte melde dich im Spielfenster neu an.');
+      this.notify('Anmeldung noetig', 'Bitte melde dich im Spielfenster neu an.', 'login');
       this.bridge.createWindow(true);
       this.stop('Sitzung abgelaufen, bitte im Spielfenster anmelden');
       return;
     }
-    if (config.automation.pauseOnIncoming && probe.player && probe.player.incomings > 0) {
-      this.logger.warn(`${probe.player.incomings} eingehende Angriffe, dieser Durchlauf wird uebersprungen`);
+    const incoming = probe.player ? Number(probe.player.incomings || 0) : 0;
+    if (incoming > this.lastIncoming) {
+      this.notify('Eingehender Angriff', `${incoming} Angriffe sind unterwegs.`, 'incoming');
+    }
+    this.lastIncoming = incoming;
+    if (config.automation.pauseOnIncoming && incoming > 0) {
+      this.logger.warn(`${incoming} eingehende Angriffe, dieser Durchlauf wird uebersprungen`);
       return;
     }
 
@@ -166,14 +176,23 @@ class Scheduler {
     this.emit();
   }
 
+  // Gleich bleibende Meldungen werden nur einmal geschrieben, sonst fuellt
+  // sich das Protokoll bei jedem Durchlauf mit derselben Zeile.
   report(village, label, result) {
     if (!result) return;
     const name = village.name || village.id;
-    if (result.acted) return;
+    if (result.acted || result.observed) {
+      this.lastReport[`${village.id}:${label}`] = null;
+      return;
+    }
+    const key = `${village.id}:${label}`;
+    const message = result.reason || (result.ok ? 'nichts zu tun' : 'unbekannter Fehler');
+    if (this.lastReport[key] === message) return;
+    this.lastReport[key] = message;
     if (result.ok) {
-      this.logger.info(`${name} ${label}: ${result.reason || 'nichts zu tun'}`);
+      this.logger.info(`${name} ${label}: ${message}`);
     } else {
-      this.logger.warn(`${name} ${label}: ${result.reason || 'unbekannter Fehler'}`);
+      this.logger.warn(`${name} ${label}: ${message}`);
     }
   }
 
@@ -207,7 +226,9 @@ class Scheduler {
     return hour >= night.startHour || hour < night.endHour;
   }
 
-  notify(title, body) {
+  notify(title, body, kind) {
+    const settings = this.store.get().automation.notifications || {};
+    if (kind && settings[kind] === false) return;
     try {
       if (Notification.isSupported()) new Notification({ title, body }).show();
     } catch (err) {

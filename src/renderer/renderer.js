@@ -28,8 +28,13 @@ function renderStatus(status) {
   if (!status) return;
   state.status = status;
   const badge = $('badge');
-  badge.textContent = status.running ? 'laeuft' : 'angehalten';
-  badge.className = 'badge ' + (status.running ? 'running' : 'stopped');
+  if (status.running && status.observeOnly) {
+    badge.textContent = 'beobachtet';
+    badge.className = 'badge observe';
+  } else {
+    badge.textContent = status.running ? 'laeuft' : 'angehalten';
+    badge.className = 'badge ' + (status.running ? 'running' : 'stopped');
+  }
   const parts = [];
   if (status.pauseReason) parts.push(status.pauseReason);
   if (status.probe && status.probe.features) {
@@ -216,6 +221,10 @@ function renderSettings() {
   $('bufWood').value = a.resourceBuffer.wood;
   $('bufStone').value = a.resourceBuffer.stone;
   $('bufIron').value = a.resourceBuffer.iron;
+  $('observeOnly').checked = a.observeOnly;
+  $('notifyCaptcha').checked = a.notifications.captcha;
+  $('notifyLogin').checked = a.notifications.login;
+  $('notifyIncoming').checked = a.notifications.incoming;
   $('pauseIncoming').checked = a.pauseOnIncoming;
   $('keepAwake').checked = a.keepAwake;
   $('nightEnabled').checked = a.nightPause.enabled;
@@ -239,6 +248,12 @@ async function saveSettings() {
         wood: Number($('bufWood').value),
         stone: Number($('bufStone').value),
         iron: Number($('bufIron').value)
+      },
+      observeOnly: $('observeOnly').checked,
+      notifications: {
+        captcha: $('notifyCaptcha').checked,
+        login: $('notifyLogin').checked,
+        incoming: $('notifyIncoming').checked
       },
       pauseOnIncoming: $('pauseIncoming').checked,
       keepAwake: $('keepAwake').checked,
@@ -324,7 +339,8 @@ $('btnDeleteTroop').addEventListener('click', async () => {
 });
 
 for (const id of ['host', 'minDelay', 'maxDelay', 'maxActions', 'cooldown', 'keepQueue', 'farmBuffer',
-  'minBatch', 'priority', 'bufWood', 'bufStone', 'bufIron',
+  'minBatch', 'priority', 'bufWood', 'bufStone', 'bufIron', 'observeOnly',
+  'notifyCaptcha', 'notifyLogin', 'notifyIncoming',
   'pauseIncoming', 'keepAwake', 'nightEnabled', 'nightStart', 'nightEnd']) {
   $(id).addEventListener('change', saveSettings);
 }

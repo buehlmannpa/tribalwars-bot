@@ -51,8 +51,12 @@ async function runTrainJob({ bridge, store, logger, village }) {
   }
 
   const result = await bridge.train(village.id, { [order.unit]: order.amount });
+  const unitName = UNIT_BY_KEY[order.unit] ? UNIT_BY_KEY[order.unit].name : order.unit;
+  if (result && result.observed) {
+    logger.info(`${village.name || village.id}: wuerde ${order.amount} ${unitName} in Auftrag geben`);
+    return { ok: true, observed: true, unit: order.unit, amount: order.amount, building };
+  }
   if (result && result.ok) {
-    const unitName = UNIT_BY_KEY[order.unit] ? UNIT_BY_KEY[order.unit].name : order.unit;
     logger.action(`${village.name || village.id}: ${order.amount} ${unitName} in Auftrag gegeben`);
     return { ok: true, acted: true, unit: order.unit, amount: order.amount, building };
   }

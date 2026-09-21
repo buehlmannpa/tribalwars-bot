@@ -36,8 +36,12 @@ und Angriffsplanung.
 ```bash
 npm install
 npm start          # zum Ausprobieren ohne Verpackung
-npm run dist       # erzeugt release/Staemme Manager-0.1.0.dmg
+npm run dist:arm   # erzeugt release/Staemme Manager-0.1.0-arm64.dmg
 ```
+
+Gebaut wird fuer Apple Silicon. Alternativ laesst sich die Datei ueber den
+Ablauf unter `.github/workflows/build-macos.yml` auf einem Mac Rechner bei
+GitHub erzeugen und dort herunterladen.
 
 Die App ist nicht bei Apple beglaubigt. Beim ersten Start meldet macOS deshalb
 einen unbekannten Entwickler. Abhilfe: im Finder mit der rechten Maustaste auf
@@ -47,15 +51,40 @@ die App klicken und Oeffnen waehlen, oder einmalig
 xattr -dr com.apple.quarantine "/Applications/Staemme Manager.app"
 ```
 
-## Ablauf im Betrieb
+## Erster Lauf, Schritt fuer Schritt
 
-1. App per Doppelklick starten. Es oeffnen sich das Dashboard und das Spielfenster.
-2. Im Spielfenster bei der Welt anmelden. Die Anmeldung bleibt gespeichert.
-3. Im Dashboard auf Doerfer einlesen klicken.
-4. Unter Vorlagen die gewuenschten Plaene anlegen. Danach in der Dorfliste die
-   Doerfer ankreuzen und ueber die Leiste oben den Bau und den Truppenplan
-   zuweisen, wahlweise fuer ein einzelnes Dorf oder fuer viele auf einmal.
-5. Unter Einstellungen den Takt pruefen und danach auf Automatik starten klicken.
+Beim ersten Start ist der Modus **nur beobachten** eingeschaltet. Die App liest
+dann alle Seiten und schreibt ins Protokoll, was sie tun wuerde, klickt aber
+nichts im Spiel. So laesst sich der Betrieb gefahrlos pruefen.
+
+1. App per Doppelklick starten. Es oeffnen sich das Dashboard und das
+   Spielfenster.
+2. Im Spielfenster bei Welt 96 anmelden. Die Anmeldung bleibt gespeichert.
+3. Im Dashboard auf **Status pruefen** klicken. Im Protokoll muss angemeldet
+   stehen, in der Kopfzeile erscheint ohne Premium.
+4. Auf **Doerfer einlesen** klicken. Die sechs Doerfer sind bereits mit
+   Vorlagen hinterlegt, das Einlesen frischt nur Namen und Koordinaten auf.
+5. Auf **Automatik starten** klicken. Die Kennzeichnung oben zeigt beobachtet.
+6. Eine halbe Stunde laufen lassen und das Protokoll lesen. Dort steht je Dorf,
+   welches Gebaeude die App ausbauen und welche Einheiten sie bestellen wuerde,
+   und warum sie gegebenenfalls wartet.
+7. Sieht das stimmig aus, unter Einstellungen den Haken bei nur beobachten
+   entfernen. Ab da handelt die App selbstaendig.
+
+Zum Anhalten genuegt der Knopf Anhalten oder Befehlstaste und Punkt.
+
+## Voreingestellte Zuweisung
+
+| Dorf | Koordinaten | Bauplan | Truppen |
+|---|---|---|---|
+| -001- | 545 zu 520 | Defensiv | Defensiv voll |
+| -002- | 545 zu 521 | Defensiv | Defensiv voll |
+| -003- | 546 zu 522 | Offensiv | Offensiv voll |
+| -004- | 547 zu 520 | Defensiv | Defensiv voll |
+| -005- | 543 zu 520 | Defensiv | Defensiv voll |
+| -006- | 543 zu 521 | Offensiv | Offensiv voll |
+
+Die Plaene lassen sich im Dashboard frei aendern und neu zuweisen.
 
 ## Tests
 

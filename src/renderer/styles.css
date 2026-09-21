@@ -81,3 +81,6 @@ code { background: rgba(128,128,128,.14); padding: 1px 5px; border-radius: 4px; 
 .row.tight { margin-bottom: 8px; margin-top: 8px; }
 th.tick, td.tick { width: 34px; text-align: center; padding-right: 0; }
 tr.selected td { background: rgba(125,81,42,.07); }
+
+.badge.observe { background: rgba(178,106,0,.16); color: var(--warn); }
+label.check.big { font-size: 14px; font-weight: 600; margin-bottom: 4px; }

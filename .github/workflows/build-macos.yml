@@ -18,8 +18,8 @@ jobs:
         run: npm install
       - name: Tests
         run: npm test
-      - name: App bauen
-        run: npm run dist
+      - name: App bauen fuer Apple Silicon
+        run: npm run dist:arm
       - name: Ergebnis hochladen
         uses: actions/upload-artifact@v4
         with:

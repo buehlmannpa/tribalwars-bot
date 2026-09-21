@@ -87,7 +87,18 @@ class Bridge {
     return this.exec(scripts.READ_BUILD);
   }
 
+  get observeOnly() {
+    return Boolean(this.store.get().automation.observeOnly);
+  }
+
   async upgrade(villageId, buildingKey) {
+    if (this.observeOnly) {
+      // Im Beobachtungsmodus wird nur geprueft, ob der Knopf bereitstuende.
+      const check = await this.exec(scripts.canBuild(buildingKey));
+      return check && check.ok
+        ? { ok: true, observed: true, building: buildingKey, target: check.target }
+        : check;
+    }
     const result = await this.exec(scripts.clickBuild(buildingKey));
     if (result && result.ok) {
       await sleep(1200 + Math.floor(Math.random() * 1200));
@@ -103,6 +114,9 @@ class Bridge {
   }
 
   async train(villageId, orders) {
+    if (this.observeOnly) {
+      return { ok: true, observed: true, ordered: orders };
+    }
     const result = await this.exec(scripts.submitTrain(orders));
     if (result && result.ok) {
       await sleep(1200 + Math.floor(Math.random() * 1200));

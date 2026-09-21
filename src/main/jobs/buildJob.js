@@ -21,7 +21,10 @@ async function runBuildJob({ bridge, store, logger, village }) {
   village.levels = state.levels;
   store.save();
 
-  const keepFilled = Number(config.automation.keepQueueFilled) || 2;
+  // Ohne Premium nimmt das Spiel hoechstens zwei Auftraege an. Mehr zu planen
+  // brächte nichts und würde nur unnötige Klicks erzeugen.
+  const limit = config.automation.premium ? 5 : 2;
+  const keepFilled = Math.min(Number(config.automation.keepQueueFilled) || 2, limit);
   if (state.queueLength >= keepFilled) {
     return { ok: true, skipped: true, reason: `Bauschleife bereits mit ${state.queueLength} Auftraegen gefuellt` };
   }
@@ -45,6 +48,10 @@ async function runBuildJob({ bridge, store, logger, village }) {
   }
 
   const result = await bridge.upgrade(village.id, next.key);
+  if (result && result.observed) {
+    logger.info(`${village.name || village.id}: wuerde ${label} auf Stufe ${result.target} in Auftrag geben`);
+    return { ok: true, observed: true, building: next.key, level: result.target };
+  }
   if (result && result.ok) {
     logger.action(`${village.name || village.id}: ${label} auf Stufe ${result.target} in Auftrag gegeben`);
     return { ok: true, acted: true, building: next.key, level: result.target };

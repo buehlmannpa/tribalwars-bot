@@ -171,6 +171,25 @@ const clickBuild = (key) => wrap(`
   return { ok: true, building: key, target: target };
 `);
 
+// Prueft, ob der Ausbau moeglich waere, ohne etwas anzuruehren.
+// Dieselben Sicherungen wie beim Klicken, nur ohne Klick.
+const canBuild = (key) => wrap(`
+  var key = ${JSON.stringify(key)};
+  var row = document.getElementById('main_buildrow_' + key);
+  if (!row) return { ok: false, error: 'Keine Tabellenzeile fuer ' + key + ' gefunden' };
+  var link = row.querySelector('a.btn-build[data-level-next]');
+  if (!link) return { ok: false, error: key + ' ist vollstaendig ausgebaut oder hat keinen Ausbauknopf' };
+  var href = link.getAttribute('href') || '';
+  if (/cheap/.test(link.id) || /cheap/.test(href)) {
+    return { ok: false, error: 'Sicherung: ein Knopf mit Premiumkosten wird nie beruehrt' };
+  }
+  if (link.style && link.style.display === 'none') {
+    var hint = row.querySelector('.build_options .inactive');
+    return { ok: false, error: hint ? hint.textContent.replace(/\\s+/g, ' ').trim() : 'Ausbau gerade nicht moeglich' };
+  }
+  return { ok: true, building: key, target: Number(link.getAttribute('data-level-next')) };
+`);
+
 // Liest die Rekrutierungsseite eines Gebaeudes aus.
 // Geprueft gegen Kaserne, Stall und Werkstatt von Welt 96. Es gibt keine
 // gemeinsame Seite, jedes Gebaeude hat seine eigene. Die Kosten und die
@@ -277,4 +296,4 @@ const CAPTURE = wrap(`
   return { ok: true, url: location.href, html: document.documentElement.outerHTML };
 `);
 
-module.exports = { PROBE, LIST_VILLAGES, READ_BUILD, READ_TRAIN, CAPTURE, clickBuild, submitTrain };
+module.exports = { PROBE, LIST_VILLAGES, READ_BUILD, READ_TRAIN, CAPTURE, clickBuild, canBuild, submitTrain };

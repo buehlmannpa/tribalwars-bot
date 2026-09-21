@@ -6,6 +6,28 @@ const { app } = require('electron');
 const { BUILD_TEMPLATES, TROOP_TEMPLATES } = require('../shared/templates');
 
 // Alles bleibt lokal im Benutzerordner der App. Es verlaesst den Laptop nie.
+// Die Doerfer sind bereits eingetragen, so wie sie am 21. September 2026 in
+// der Dorfuebersicht standen. Beim Einlesen werden Name und Koordinaten
+// aufgefrischt, die Zuweisungen bleiben bestehen.
+const VILLAGES = [
+  ['2201', '-001-', '545|520', 'Defensiv', 'Defensiv voll'],
+  ['2283', '-002-', '545|521', 'Defensiv', 'Defensiv voll'],
+  ['2347', '-003-', '546|522', 'Offensiv', 'Offensiv voll'],
+  ['2312', '-004-', '547|520', 'Defensiv', 'Defensiv voll'],
+  ['1990', '-005-', '543|520', 'Defensiv', 'Defensiv voll'],
+  ['2153', '-006-', '543|521', 'Offensiv', 'Offensiv voll']
+];
+
+const seededVillages = () => Object.fromEntries(VILLAGES.map(([id, name, coords, build, troop]) => [id, {
+  id, name, coords,
+  buildTemplate: build,
+  troopTemplate: troop,
+  buildActive: true,
+  troopActive: true,
+  lastRun: 0,
+  note: ''
+}]));
+
 const DEFAULTS = {
   world: {
     host: 'https://ch96.staemme.ch',
@@ -13,6 +35,11 @@ const DEFAULTS = {
   },
   automation: {
     enabled: false,
+    // Beim ersten Start wird nur beobachtet. Die App liest alles und schreibt
+    // ins Protokoll, was sie tun wuerde, klickt aber nichts im Spiel.
+    observeOnly: true,
+    // Ohne Premium nimmt das Spiel hoechstens zwei Bauauftraege an.
+    premium: false,
     minDelaySeconds: 45,
     maxDelaySeconds: 180,
     maxActionsPerHour: 60,
@@ -24,9 +51,10 @@ const DEFAULTS = {
     farmBuffer: 0,
     nightPause: { enabled: false, startHour: 23, endHour: 8 },
     pauseOnIncoming: true,
-    keepAwake: true
+    keepAwake: true,
+    notifications: { captcha: true, login: true, incoming: true }
   },
-  villages: {},
+  villages: seededVillages(),
   buildTemplates: BUILD_TEMPLATES,
   troopTemplates: TROOP_TEMPLATES
 };
