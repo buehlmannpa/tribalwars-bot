@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <title>Staemme Manager</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Staemme Manager</h1>
+      <span id="world" class="muted"></span>
+    </div>
+    <div class="status">
+      <span id="badge" class="badge stopped">angehalten</span>
+      <span id="statusText" class="muted"></span>
+    </div>
+    <div class="controls">
+      <button id="btnStart" class="primary">Automatik starten</button>
+      <button id="btnStop">Anhalten</button>
+      <button id="btnGame">Spielfenster</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="villages">Doerfer</button>
+    <button class="tab" data-tab="templates">Vorlagen</button>
+    <button class="tab" data-tab="settings">Einstellungen</button>
+    <button class="tab" data-tab="log">Protokoll</button>
+  </nav>
+
+  <main>
+    <section id="tab-villages" class="panel active">
+      <div class="row">
+        <button id="btnSync" class="primary">Doerfer einlesen</button>
+        <button id="btnProbe">Status pruefen</button>
+        <span class="muted">Melde dich zuerst im Spielfenster an, danach die Doerfer einlesen.</span>
+      </div>
+      <table id="villageTable">
+        <thead>
+          <tr>
+            <th>Dorf</th><th>Koordinaten</th><th>Bauvorlage</th><th>Bauen</th>
+            <th>Truppenvorlage</th><th>Rekrutieren</th><th>Letzter Durchlauf</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="tab-templates" class="panel">
+      <div class="grid2">
+        <div>
+          <h2>Bauvorlagen</h2>
+          <p class="muted">Eine Zeile je Auftrag, Gebaeude und Zielstufe, zum Beispiel <code>wood 10</code>. Die Liste wird strikt von oben nach unten abgearbeitet.</p>
+          <select id="buildSelect"></select>
+          <input id="buildName" type="text" placeholder="Name der Vorlage" />
+          <textarea id="buildBody" rows="16" spellcheck="false"></textarea>
+          <div class="row">
+            <button id="btnSaveBuild" class="primary">Bauvorlage speichern</button>
+            <button id="btnDeleteBuild">Loeschen</button>
+          </div>
+          <p class="muted" id="buildKeys"></p>
+        </div>
+        <div>
+          <h2>Truppenvorlagen</h2>
+          <p class="muted">Eine Zeile je Einheit mit dem Zielbestand, zum Beispiel <code>axe 7000</code>.</p>
+          <select id="troopSelect"></select>
+          <input id="troopName" type="text" placeholder="Name der Vorlage" />
+          <textarea id="troopBody" rows="16" spellcheck="false"></textarea>
+          <div class="row">
+            <button id="btnSaveTroop" class="primary">Truppenvorlage speichern</button>
+            <button id="btnDeleteTroop">Loeschen</button>
+          </div>
+          <p class="muted" id="troopKeys"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-settings" class="panel">
+      <h2>Welt</h2>
+      <label>Adresse der Welt <input id="host" type="text" /></label>
+      <h2>Takt und Grenzen</h2>
+      <div class="grid3">
+        <label>Pause minimal in Sekunden <input id="minDelay" type="number" min="10" /></label>
+        <label>Pause maximal in Sekunden <input id="maxDelay" type="number" min="20" /></label>
+        <label>Aktionen pro Stunde <input id="maxActions" type="number" min="1" /></label>
+        <label>Wartezeit je Dorf in Minuten <input id="cooldown" type="number" min="1" /></label>
+        <label>Bauschleife fuellen bis <input id="keepQueue" type="number" min="1" max="5" /></label>
+        <label>Bauernhof Puffer <input id="farmBuffer" type="number" min="0" /></label>
+      </div>
+      <h2>Sicherungen</h2>
+      <label class="check"><input id="pauseIncoming" type="checkbox" /> Durchlauf bei eingehenden Angriffen ueberspringen</label>
+      <label class="check"><input id="keepAwake" type="checkbox" /> Mac waehrend der Automatik wach halten</label>
+      <label class="check"><input id="nightEnabled" type="checkbox" /> Nachtpause aktiv</label>
+      <div class="grid3">
+        <label>Nachtpause von <input id="nightStart" type="number" min="0" max="23" /></label>
+        <label>Nachtpause bis <input id="nightEnd" type="number" min="0" max="23" /></label>
+      </div>
+      <h2>Fehlersuche</h2>
+      <p class="muted">Ein Seitenabzug speichert die aktuell geoeffnete Spielseite als Datei. Damit lassen sich die Auswahlpfade gegen deine echte Welt pruefen.</p>
+      <div class="row">
+        <button id="btnCapture">Seitenabzug speichern</button>
+      </div>
+    </section>
+
+    <section id="tab-log" class="panel">
+      <div class="row">
+        <button id="btnClearLog">Anzeige leeren</button>
+      </div>
+      <div id="log" class="log"></div>
+    </section>
+  </main>
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+name: macOS App bauen
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Abhaengigkeiten installieren
+        run: npm install
+      - name: Tests
+        run: npm test
+      - name: App bauen
+        run: npm run dist
+      - name: Ergebnis hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: staemme-manager-dmg
+          path: release/*.dmg
+          if-no-files-found: error

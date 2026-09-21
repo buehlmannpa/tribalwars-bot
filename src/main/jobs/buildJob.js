@@ -1,0 +1,77 @@
+'use strict';
+
+const { BUILDING_BY_KEY } = require('../../shared/constants');
+
+// Dorfmanager. Arbeitet die Bauvorlage strikt von oben nach unten ab und
+// beruecksichtigt dabei, was bereits in der Bauschleife steht.
+async function runBuildJob({ bridge, store, logger, village }) {
+  const config = store.get();
+  const template = config.buildTemplates[village.buildTemplate];
+  if (!template || !template.length) {
+    return { ok: false, skipped: true, reason: 'Keine Bauvorlage zugewiesen' };
+  }
+
+  const state = await bridge.readBuild(village.id);
+  if (!state || !state.ok) {
+    return { ok: false, reason: state ? state.error : 'Bauseite nicht lesbar' };
+  }
+
+  const keepFilled = Number(config.automation.keepQueueFilled) || 2;
+  if (state.queueLength >= keepFilled) {
+    return { ok: true, skipped: true, reason: `Bauschleife bereits mit ${state.queueLength} Auftraegen gefuellt` };
+  }
+
+  const effective = effectiveLevels(state);
+  const next = nextOrder(template, effective);
+  if (!next) {
+    return { ok: true, done: true, reason: 'Bauvorlage vollstaendig abgearbeitet' };
+  }
+
+  const label = BUILDING_BY_KEY[next.key] ? BUILDING_BY_KEY[next.key].name : next.key;
+  if (!state.buildable[next.key]) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: `${label} Stufe ${next.level} noch nicht moeglich, es fehlen Rohstoffe oder Voraussetzungen`
+    };
+  }
+
+  const result = await bridge.upgrade(village.id, next.key);
+  if (result && result.ok) {
+    logger.action(`${village.name || village.id}: ${label} auf Stufe ${result.target} in Auftrag gegeben`);
+    return { ok: true, acted: true, building: next.key, level: result.target };
+  }
+  return { ok: false, reason: result ? result.error : 'Ausbau fehlgeschlagen' };
+}
+
+// Stufen inklusive der Auftraege, die schon in der Bauschleife stehen.
+function effectiveLevels(state) {
+  const levels = { ...state.levels };
+  const names = state.names || {};
+  for (const entry of state.queue || []) {
+    const key = matchBuilding(entry, names);
+    if (key) levels[key] = (levels[key] || 0) + 1;
+  }
+  return levels;
+}
+
+function matchBuilding(queueLabel, names) {
+  const label = queueLabel.toLowerCase();
+  let best = null;
+  for (const [key, name] of Object.entries(names)) {
+    if (!name) continue;
+    if (label.includes(name.toLowerCase()) && (!best || name.length > names[best].length)) best = key;
+  }
+  return best;
+}
+
+function nextOrder(template, levels) {
+  for (const [key, target] of template) {
+    if ((levels[key] || 0) < target) {
+      return { key, level: (levels[key] || 0) + 1, target };
+    }
+  }
+  return null;
+}
+
+module.exports = { runBuildJob, effectiveLevels, nextOrder, matchBuilding };
