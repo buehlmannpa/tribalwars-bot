@@ -16,31 +16,28 @@ dauerhafte Sperre des Welt Accounts und moeglicherweise des Master Accounts.
 Zusaetzlich schuetzt hCaptcha die Seiten, und im Spiel erscheint zufaellig der
 Botschutz, der alle Aktionen blockiert, bis ein Mensch bestaetigt.
 
-## 2. Welt 97 Schweiz
+## 2. Welt 96 Schweiz
 
-Abgefragt ueber `https://ch97.staemme.ch/interface.php?func=get_config`.
+Abgefragt ueber `https://ch96.staemme.ch/interface.php?func=get_config`. Das ist
+die gespielte Welt. Eine fruehere Fassung dieser Datei nannte Welt 97, deren
+Werte weichen deutlich ab.
 
-| Einstellung | Wert |
+| Einstellung | Wert auf ch96 |
 |---|---|
-| Weltgeschwindigkeit | 1.6 |
-| Einheitengeschwindigkeit | 0.625 |
+| Weltgeschwindigkeit | 1 |
+| Einheitengeschwindigkeit | 1 |
 | Moral | 3 |
-| Bogenschuetzen | nein |
+| Bogenschuetzen | ja |
 | Kirche | nein |
-| Wachturm | ja |
+| Wachturm | nein |
 | Raubzuege | aktiv |
+| Paladin | Stufe 3, mit Faehigkeitsbuechern |
 | Adelsgeschlecht | Goldmuenzen, automatische Praegung im Spiel vorhanden |
 | Muenzkosten | 28000 Holz, 30000 Lehm, 25000 Eisen |
-| Nachtbonus | 23:00 bis 08:00, Verteidigungsfaktor 3 |
-| Sitter | erlaubt, hoechstens 3 |
-| Befehlsabstand | 150 Millisekunden, Ankunft auf Millisekunden genau |
-| Kartengroesse | 1000, Start bei 500 zu 500 |
+| Nachtbonus | 22:00 bis 07:00, Verteidigungsfaktor 2 |
+| Kartengroesse | 1000 |
 | Gratis Premium | bei 500 und 15000 Punkten |
 | Gratis Accountmanager | bei 10, 25, 100, 250, 500 und 1000 Doerfern |
-
-Wichtig: Die automatische Muenzpraegung ist bereits eine Funktion des Spiels,
-sie muss nicht nachgebaut werden. Ebenso gibt es den Accountmanager auf dieser
-Welt bei Meilensteinen befristet gratis.
 
 ## 3. Funktionsumfang des offiziellen Accountmanagers
 
@@ -83,6 +80,32 @@ Geprueft an einem Seitenabzug der Gebaeudeansicht von Dorf 2201.
    unter keinen Umstaenden treffen.
 7. Ist ein Gebaeude fertig, fehlt der Knopf ganz und die Zeile enthaelt nur
    den Hinweis, dass das Gebaeude vollstaendig ausgebaut ist.
+
+## 3b. Befunde zur Dorfliste und zur Rekrutierung
+
+Geprueft an Seitenabzuegen der Dorfuebersicht sowie von Kaserne, Stall und
+Werkstatt.
+
+1. Die Dorfuebersicht liegt unter
+   `screen=overview_villages&mode=prod` in der Tabelle `#production_table`.
+   **Die Zeilen tragen keine Kennung.** Die Dorfnummer steht am Feld `data-id`
+   der Schnellbearbeitung `span.quickedit-vn`, Name und Koordinaten in der
+   Beschriftung `span.quickedit-label` daneben.
+2. **Es gibt keine gemeinsame Rekrutierungsseite.** Der Eintrag in der
+   Schnellleiste zeigt zwar auf `screen=train`, die tatsaechlichen Seiten sind
+   `screen=barracks`, `screen=stable` und `screen=garage`. Jede hat ihr eigenes
+   Formular `#train_form` mit der Aktion `action=train&mode=train`.
+3. Je Einheit gibt es ein Eingabefeld `input.recruit_unit` mit der Kennung
+   `<einheit>_0` und daneben einen Verweis `<einheit>_0_a`, dessen Beschriftung
+   in Klammern die gerade bezahlbare Hoechstzahl nennt.
+4. Der Bestand steht in der Spalte Im Dorf durch Insgesamt, also zum Beispiel
+   `45/3264`. Die erste Zahl gilt fuer das Dorf, die zweite fuer das Konto.
+5. Kosten, Einwohnerbedarf und der Stand der Forschung liegen im Seitenkontext
+   unter `unit_managers.units`.
+6. **Laufende Ausbildungen tragen keine Kennung.** Die Zeilen haben die Klasse
+   `lit`, verlaesslich zaehlbar sind die Abbruchknoepfe `a.btn-cancel` im
+   Bereich `.trainqueue_wrap`.
+7. Nicht erforschte Einheiten stehen in einer eigenen Tabelle ohne Eingabefeld.
 
 ## 4. Technische Oberflaeche
 

@@ -53,16 +53,23 @@ const PROBE = wrap(`
 `);
 
 // Liest die Dorfliste aus der Produktionsuebersicht.
+// Geprueft gegen Welt 96. Die Zeilen tragen keine Kennung, die Dorfnummer
+// steht am Feld data-id der Schnellbearbeitung, Name und Koordinaten stehen
+// in der Beschriftung daneben.
 const LIST_VILLAGES = wrap(`
-  var rows = document.querySelectorAll('#production_table tr[id^="village_"], tr[id^="village_"]');
+  var nodes = document.querySelectorAll('#production_table [data-id], [data-id].quickedit-vn');
+  var seen = {};
   var out = [];
-  Array.prototype.forEach.call(rows, function (row) {
-    var id = String(row.id).replace('village_', '');
-    if (!/^\\d+$/.test(id)) return;
-    var link = row.querySelector('a[href*="village=' + id + '"], span.quickedit-label');
-    var text = link ? link.textContent.trim() : row.textContent.trim().split('\\n')[0];
-    var coords = (text.match(/\\((\\d+)\\|(\\d+)\\)/) || [])[0] || '';
-    out.push({ id: id, name: text.replace(/\\s*\\(\\d+\\|\\d+\\)\\s*K\\d+\\s*$/, '').trim(), coords: coords.replace(/[()]/g, '') });
+  Array.prototype.forEach.call(nodes, function (node) {
+    var id = String(node.getAttribute('data-id') || '');
+    if (!/^\\d+$/.test(id) || seen[id]) return;
+    var label = node.querySelector('.quickedit-label');
+    var text = label ? label.textContent.replace(/\\s+/g, ' ').trim() : '';
+    var name = label && label.getAttribute('data-text') ? label.getAttribute('data-text') : text;
+    var coords = (text.match(/(\\d+)\\|(\\d+)/) || [])[0] || '';
+    var continent = (text.match(/K\\d+/) || [])[0] || '';
+    seen[id] = true;
+    out.push({ id: id, name: name.trim(), coords: coords, continent: continent });
   });
   return { ok: true, villages: out };
 `);
@@ -164,37 +171,72 @@ const clickBuild = (key) => wrap(`
   return { ok: true, building: key, target: target };
 `);
 
-// Liest die Rekrutierungsseite aus.
+// Liest die Rekrutierungsseite eines Gebaeudes aus.
+// Geprueft gegen Kaserne, Stall und Werkstatt von Welt 96. Es gibt keine
+// gemeinsame Seite, jedes Gebaeude hat seine eigene. Die Kosten und die
+// Voraussetzungen stehen im Seitenkontext unter unit_managers.units.
 const READ_TRAIN = wrap(`
   var gd = window.game_data;
   if (!gd || !gd.village) return { ok: false, error: 'Keine Spieldaten auf der Seite' };
-  var form = document.querySelector('#train_form') || document.querySelector('form[action*="screen=train"]');
-  if (!form) return { ok: false, error: 'Kein Rekrutierungsformular gefunden' };
+  var form = document.querySelector('#train_form');
+  if (!form) {
+    return { ok: false, error: 'Kein Rekrutierungsformular, das Gebaeude fehlt vermutlich' };
+  }
+  var action = form.getAttribute('action') || '';
+  if (action.indexOf('action=train') === -1) {
+    return { ok: false, error: 'Unerwartetes Formular auf der Seite' };
+  }
+
+  var costs = (window.unit_managers && window.unit_managers.units) ? window.unit_managers.units : {};
   var units = {};
-  var inputs = form.querySelectorAll('input[type="text"], input[type="number"]');
+  var inputs = form.querySelectorAll('input.recruit_unit, input[type="text"][name]');
   Array.prototype.forEach.call(inputs, function (input) {
     var name = input.name;
     if (!name || name === 'h') return;
-    var row = input.closest('tr');
     var present = null;
-    var max = null;
+    var total = null;
+    var row = input.closest('tr');
     if (row) {
-      var match = row.textContent.replace(/\\s+/g, ' ').match(/(\\d+)\\s*\\/\\s*(\\d+)/);
-      if (match) { present = Number(match[1]); }
-      var maxLink = row.querySelector('a[href*="javascript"], a.unit_link');
-      if (maxLink) {
-        var m2 = maxLink.textContent.match(/\\((\\d+)\\)/);
-        if (m2) max = Number(m2[1]);
+      var cells = row.querySelectorAll('td');
+      for (var i = 0; i < cells.length; i++) {
+        var match = cells[i].textContent.replace(/\\s+/g, '').match(/^(\\d+)\\/(\\d+)$/);
+        if (match) { present = Number(match[1]); total = Number(match[2]); break; }
       }
     }
-    units[name] = { present: present, max: max, disabled: Boolean(input.disabled) };
+    var max = null;
+    var maxLink = document.getElementById(input.id + '_a');
+    if (maxLink) {
+      var m2 = maxLink.textContent.match(/\\((\\d+)\\)/);
+      if (m2) max = Number(m2[1]);
+    }
+    var cost = costs[name] || null;
+    units[name] = {
+      present: present,
+      total: total,
+      max: max,
+      disabled: Boolean(input.disabled),
+      pop: cost ? Number(cost.pop) : null,
+      cost: cost ? { wood: Number(cost.wood), stone: Number(cost.stone), iron: Number(cost.iron) } : null
+    };
   });
-  var queueRows = form.ownerDocument.querySelectorAll('#trainqueue_wrap tr[id^="trainorder_"], tr[id^="trainorder_"]');
+
+  // Die laufenden Auftraege tragen keine eigene Kennung. Verlaesslich ist die
+  // Zahl der Abbruchknoepfe in der Ausbildungsliste.
+  var queue = [];
+  var cancels = document.querySelectorAll('.trainqueue_wrap a.btn-cancel, #trainqueue_wrap a.btn-cancel');
+  Array.prototype.forEach.call(cancels, function (link) {
+    var row = link.closest('tr');
+    var label = row ? row.querySelector('td') : null;
+    queue.push(label ? label.textContent.replace(/\\s+/g, ' ').trim() : 'Auftrag');
+  });
+
   return {
     ok: true,
     villageId: String(gd.village.id),
+    building: gd.screen,
     units: units,
-    queueLength: queueRows.length,
+    queue: queue,
+    queueLength: queue.length,
     pop: Number(gd.village.pop),
     popMax: Number(gd.village.pop_max),
     resources: {
@@ -208,8 +250,12 @@ const READ_TRAIN = wrap(`
 // Traegt Mengen ein und schickt den Rekrutierungsauftrag ab.
 const submitTrain = (orders) => wrap(`
   var orders = ${JSON.stringify(orders)};
-  var form = document.querySelector('#train_form') || document.querySelector('form[action*="screen=train"]');
+  var form = document.querySelector('#train_form');
   if (!form) return { ok: false, error: 'Kein Rekrutierungsformular gefunden' };
+  var action = form.getAttribute('action') || '';
+  if (action.indexOf('action=train') === -1) {
+    return { ok: false, error: 'Sicherung: unerwartetes Formular, es wird nichts abgeschickt' };
+  }
   var written = {};
   Object.keys(orders).forEach(function (unit) {
     var input = form.querySelector('[name="' + unit + '"]');
@@ -220,7 +266,7 @@ const submitTrain = (orders) => wrap(`
     written[unit] = orders[unit];
   });
   if (!Object.keys(written).length) return { ok: false, error: 'Keine passenden Eingabefelder gefunden' };
-  var button = form.querySelector('input[type="submit"], .btn-recruit, button[type="submit"]');
+  var button = form.querySelector('.btn-recruit') || form.querySelector('input[type="submit"]');
   if (!button) return { ok: false, error: 'Kein Absendeknopf gefunden' };
   button.click();
   return { ok: true, ordered: written };

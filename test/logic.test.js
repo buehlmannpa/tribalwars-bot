@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { effectiveLevels, nextOrder, matchBuilding } = require('../src/main/jobs/buildJob');
-const { chooseOrder } = require('../src/main/jobs/trainJob');
+const { chooseOrder, pickBuilding } = require('../src/main/jobs/trainJob');
 
 test('nextOrder nimmt den ersten Auftrag, der noch nicht erreicht ist', () => {
   const template = [['main', 3], ['wood', 3], ['stone', 3]];
@@ -117,4 +117,38 @@ test('effectiveLevels nutzt die Auftragszahl der Spielseite', () => {
     queue: []
   };
   assert.deepStrictEqual(effectiveLevels(state), { main: 24, garage: 9 });
+});
+
+test('pickBuilding wechselt reihum zwischen den Rekrutierungsgebaeuden', () => {
+  const template = { spear: 100, light: 50, ram: 10 };
+  const village = { levels: { barracks: 20, stable: 15, garage: 9 } };
+  village.lastTrainBuilding = 'barracks';
+  assert.strictEqual(pickBuilding(template, village), 'stable');
+  village.lastTrainBuilding = 'stable';
+  assert.strictEqual(pickBuilding(template, village), 'garage');
+  village.lastTrainBuilding = 'garage';
+  assert.strictEqual(pickBuilding(template, village), 'barracks');
+});
+
+test('pickBuilding ueberspringt Gebaeude, die im Dorf fehlen', () => {
+  const template = { spear: 100, light: 50 };
+  const village = { levels: { barracks: 3, stable: 0 }, lastTrainBuilding: 'barracks' };
+  assert.strictEqual(pickBuilding(template, village), 'barracks');
+});
+
+test('pickBuilding liefert nichts, wenn kein Gebaeude passt', () => {
+  const template = { light: 50 };
+  const village = { levels: { barracks: 3, stable: 0 } };
+  assert.strictEqual(pickBuilding(template, village), null);
+});
+
+test('chooseOrder nimmt den Einwohnerbedarf von der Spielseite', () => {
+  // Die Seite meldet vier Plaetze je leichter Kavallerie.
+  const order = chooseOrder({
+    template: { light: 1000 },
+    state: { units: { light: { present: 0, max: 500, pop: 4 } } },
+    freePop: 30,
+    minBatch: 1
+  });
+  assert.strictEqual(order.amount, 7);
 });

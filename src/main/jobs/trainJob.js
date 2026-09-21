@@ -1,9 +1,9 @@
 'use strict';
 
-const { UNIT_BY_KEY } = require('../../shared/constants');
+const { UNIT_BY_KEY, BUILDING_BY_KEY } = require('../../shared/constants');
 
-// Truppenmanager. Rekrutiert in Paketen und haelt die Einheiten der Vorlage
-// auf annaehernd gleichem Fortschritt, so wie es der offizielle Manager tut.
+// Truppenmanager. Kaserne, Stall und Werkstatt haben je eine eigene Seite,
+// darum wird pro Durchlauf ein Gebaeude besucht und reihum gewechselt.
 async function runTrainJob({ bridge, store, logger, village }) {
   const config = store.get();
   const template = config.troopTemplates[village.troopTemplate];
@@ -11,9 +11,23 @@ async function runTrainJob({ bridge, store, logger, village }) {
     return { ok: false, skipped: true, reason: 'Keine Truppenvorlage zugewiesen' };
   }
 
-  const state = await bridge.readTrain(village.id);
+  const building = pickBuilding(template, village);
+  if (!building) {
+    return { ok: true, skipped: true, reason: 'Kein passendes Rekrutierungsgebaeude im Dorf' };
+  }
+  village.lastTrainBuilding = building;
+  store.save();
+
+  const label = BUILDING_BY_KEY[building] ? BUILDING_BY_KEY[building].name : building;
+  const state = await bridge.readTrain(village.id, building);
   if (!state || !state.ok) {
-    return { ok: false, reason: state ? state.error : 'Rekrutierungsseite nicht lesbar' };
+    return { ok: false, reason: `${label}: ${state ? state.error : 'Seite nicht lesbar'}` };
+  }
+
+  const buffer = config.automation.resourceBuffer || {};
+  const shortOf = ['wood', 'stone', 'iron'].find((key) => state.resources[key] < (Number(buffer[key]) || 0));
+  if (shortOf) {
+    return { ok: true, skipped: true, reason: `Rohstoffpuffer noch nicht erreicht, ${shortOf} wird geschont` };
   }
 
   const farmBuffer = Number(config.automation.farmBuffer) || 0;
@@ -22,38 +36,43 @@ async function runTrainJob({ bridge, store, logger, village }) {
     return { ok: true, skipped: true, reason: 'Keine freien Bauernhofplaetze mehr, Puffer beruecksichtigt' };
   }
 
-  // Rohstoffpuffer wie im Vorbild: was unter dem Puffer liegt, bleibt dem
-  // Bauplan vorbehalten und wird nicht verbaut.
-  const buffer = config.automation.resourceBuffer || {};
-  const shortOf = ['wood', 'stone', 'iron'].find((key) => state.resources[key] < (Number(buffer[key]) || 0));
-  if (shortOf) {
-    return { ok: true, skipped: true, reason: `Rohstoffpuffer noch nicht erreicht, ${shortOf} wird geschont` };
-  }
-
   const minBatch = Number(config.automation.minRecruitBatch) || 1;
   const order = chooseOrder({ template, state, freePop, minBatch });
   if (!order) {
-    // Unterscheiden, ob die Vorlage erfuellt ist oder ob nur die Rohstoffe
-    // fehlen. Im zweiten Fall spart der Manager und meldet das nach oben.
     const stillMissing = Object.entries(template).some(([unit, target]) => {
       const info = state.units[unit];
       if (!info || info.disabled) return false;
-      const present = Number.isFinite(info.present) ? info.present : 0;
-      return target - present > 0;
+      return target - (Number.isFinite(info.present) ? info.present : 0) > 0;
     });
     if (stillMissing) {
-      return { ok: true, skipped: true, waiting: true, reason: 'Rohstoffe reichen noch nicht fuer eine sinnvolle Bestellung' };
+      return { ok: true, skipped: true, waiting: true, reason: `${label}: Rohstoffe reichen noch nicht fuer eine sinnvolle Bestellung` };
     }
-    return { ok: true, done: true, reason: 'Zielbestand erreicht' };
+    return { ok: true, done: true, reason: `${label}: Zielbestand erreicht` };
   }
 
   const result = await bridge.train(village.id, { [order.unit]: order.amount });
   if (result && result.ok) {
-    const label = UNIT_BY_KEY[order.unit] ? UNIT_BY_KEY[order.unit].name : order.unit;
-    logger.action(`${village.name || village.id}: ${order.amount} ${label} in Auftrag gegeben`);
-    return { ok: true, acted: true, unit: order.unit, amount: order.amount };
+    const unitName = UNIT_BY_KEY[order.unit] ? UNIT_BY_KEY[order.unit].name : order.unit;
+    logger.action(`${village.name || village.id}: ${order.amount} ${unitName} in Auftrag gegeben`);
+    return { ok: true, acted: true, unit: order.unit, amount: order.amount, building };
   }
   return { ok: false, reason: result ? result.error : 'Rekrutierung fehlgeschlagen' };
+}
+
+// Waehlt das naechste Gebaeude reihum und ueberspringt, was im Dorf fehlt.
+function pickBuilding(template, village) {
+  const wanted = [];
+  for (const [unit, target] of Object.entries(template)) {
+    if (!target) continue;
+    const meta = UNIT_BY_KEY[unit];
+    if (!meta || wanted.includes(meta.building)) continue;
+    wanted.push(meta.building);
+  }
+  const levels = village.levels || null;
+  const available = levels ? wanted.filter((key) => Number(levels[key] || 0) > 0) : wanted;
+  if (!available.length) return null;
+  const last = available.indexOf(village.lastTrainBuilding);
+  return available[(last + 1) % available.length];
 }
 
 // Waehlt die Einheit mit dem geringsten Fortschritt und ein passendes Paket.
@@ -68,7 +87,7 @@ function chooseOrder({ template, state, freePop, minBatch = 1 }) {
     if (missing <= 0) continue;
     const meta = UNIT_BY_KEY[unit];
     const packet = meta ? meta.packet : 10;
-    const pop = meta && meta.pop ? meta.pop : 1;
+    const pop = Number(info.pop) || (meta ? meta.pop : 1) || 1;
     const desired = Math.min(missing, packet, Math.floor(freePop / pop));
     if (desired <= 0) continue;
     const affordable = Number.isFinite(info.max) && info.max !== null ? info.max : desired;
@@ -85,4 +104,4 @@ function chooseOrder({ template, state, freePop, minBatch = 1 }) {
   return candidates[0];
 }
 
-module.exports = { runTrainJob, chooseOrder };
+module.exports = { runTrainJob, chooseOrder, pickBuilding };

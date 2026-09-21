@@ -118,9 +118,10 @@ class SimulatedBridge {
     return { ok: true, building: key, target: level };
   }
 
-  async readTrain() {
+  async readTrain(_id, buildingKey) {
     const units = {};
     for (const [unit, cost] of Object.entries(UNIT_COST)) {
+      if (buildingKey && UNIT_BY_KEY[unit] && UNIT_BY_KEY[unit].building !== buildingKey) continue;
       const affordable = Math.min(
         Math.floor(this.v.res.wood / cost[0]),
         Math.floor(this.v.res.stone / cost[1]),
@@ -129,6 +130,7 @@ class SimulatedBridge {
       const meta = UNIT_BY_KEY[unit];
       const building = meta ? meta.building : 'barracks';
       units[unit] = {
+        pop: UNIT_BY_KEY[unit] ? UNIT_BY_KEY[unit].pop : 1,
         present: this.v.units[unit] || 0,
         max: affordable,
         disabled: (this.v.levels[building] || 0) === 0

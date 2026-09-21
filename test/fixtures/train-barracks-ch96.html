@@ -1,0 +1,54 @@
+<!-- Wortgetreuer Auszug der Kaserne von Welt 96, Dorf 2201. -->
+<div class="current_prod_wrapper">
+<div id="replace_barracks">
+  <div class="trainqueue_wrap" id="trainqueue_wrap_barracks">
+    <table class="vis" style="width: 100%"><tbody>
+      <tr><th style="width: 25%">Usbildig</th><th>Dur</th><th>Fertigstellig</th><th style="width: 150px">Abbruch *</th></tr>
+      <tr class="lit">
+        <td class="lit-item"><div class="unit_sprite unit_sprite_smaller spear"></div> 128 Speerträger </td>
+        <td class="lit-item"><span class="">7:29:47</span></td>
+        <td class="lit-item">hüt um 17:58:15</td>
+        <td class="lit-item"><a class="btn btn-cancel" onclick="return TrainOverview.cancelOrder(823642)" href="/game.php?village=2201&amp;screen=barracks&amp;action=cancel&amp;id=823642&amp;h=57fa980b">Abbräche</a></td>
+      </tr>
+    </tbody><tbody id="trainqueue_barracks"></tbody></table>
+  </div>
+</div>
+</div>
+<form action="/game.php?village=2201&amp;screen=barracks&amp;action=train&amp;mode=train" id="train_form" method="post">
+<table class="vis" style="width: 100%"><tbody>
+<tr><th style="width: 20%">Einheit</th><th style="min-width: 400px">Bedarf</th><th>Im Dorf/Insgesamt</th><th style="width: 120px">Rekrutiere</th></tr>
+
+<tr class="row_a">
+  <td class="nowrap"><a href="#" class="unit_link" data-unit="spear">Speerträger</a></td>
+  <td><div class="recruit_req"><span><span id="spear_0_cost_wood">50</span></span><span><span id="spear_0_cost_stone">30</span></span><span><span id="spear_0_cost_iron">10</span></span><span><span id="spear_0_cost_pop">1</span></span><span><span id="spear_0_cost_time">0:03:33</span></span></div></td>
+  <td style="text-align: center">45/3264</td>
+  <td><span id="spear_0_interaction">
+    <input name="spear" value="" class="recruit_unit" id="spear_0" type="text" style="width: 50px; color: black;" maxlength="5" tabindex="1">
+    <a id="spear_0_a" href="javascript:unit_build_block.set_max('spear')">(1044)</a>
+  </span><span id="spear_0_afford_hint" class="inactive" style="display:none;"></span></td>
+</tr>
+
+<tr class="row_a">
+  <td class="nowrap"><a href="#" class="unit_link" data-unit="sword">Schwärtkämpfer</a></td>
+  <td><div class="recruit_req"><span><span id="sword_0_cost_wood">30</span></span><span><span id="sword_0_cost_iron">70</span></span><span><span id="sword_0_cost_time">0:05:12</span></span></div></td>
+  <td style="text-align: center">0/1976</td>
+  <td><span id="sword_0_interaction">
+    <input name="sword" value="" class="recruit_unit" id="sword_0" type="text" style="width: 50px; color: black;" maxlength="5" tabindex="2">
+    <a id="sword_0_a" href="javascript:unit_build_block.set_max('sword')">(527)</a>
+  </span></td>
+</tr>
+
+<tr class="row_a">
+  <td class="nowrap"><a href="#" class="unit_link" data-unit="axe">Axtkämpfer</a></td>
+  <td><div class="recruit_req"><span><span id="axe_0_cost_wood">60</span></span><span><span id="axe_0_cost_time">0:04:35</span></span></div></td>
+  <td style="text-align: center">0/0</td>
+  <td><span id="axe_0_interaction">
+    <input name="axe" value="" class="recruit_unit" id="axe_0" type="text" style="width: 50px; color: black;" maxlength="5" tabindex="3">
+    <a id="axe_0_a" href="javascript:unit_build_block.set_max('axe')">(870)</a>
+  </span></td>
+</tr>
+
+<tr><td colspan="3"></td><td><input class="btn btn-recruit" style="float: inherit" type="submit" value="Rekrutiere" tabindex="5"></td></tr>
+</tbody></table>
+<input type="hidden" name="h" value="57fa980b">
+</form>

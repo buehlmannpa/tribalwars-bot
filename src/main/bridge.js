@@ -95,8 +95,10 @@ class Bridge {
     return result;
   }
 
-  async readTrain(villageId) {
-    await this.navigate('train', villageId);
+  // Es gibt keine gemeinsame Rekrutierungsseite. Kaserne, Stall und Werkstatt
+  // haben je eine eigene Ansicht, darum wird das Gebaeude mitgegeben.
+  async readTrain(villageId, building) {
+    await this.navigate(building, villageId);
     return this.exec(scripts.READ_TRAIN);
   }
 

@@ -77,15 +77,21 @@ npm test
 | `src/renderer/` | Dashboard |
 | `docs/ANALYSE.md` | Analyse des Spiels und der Schweizer Welt |
 
-## Offener Punkt zu den Auswahlpfaden
+## Stand der Pruefung gegen die echte Welt
 
-Die Schnipsel in `src/main/pageScripts.js` sprechen die Spielseite ueber ihre
-Bezeichner an, zum Beispiel `main_buildlink_wood_11` oder `#train_form`. Diese
-Bezeichner stammen aus der oeffentlich bekannten Struktur des Spiels und sind
-noch nicht gegen eine angemeldete Sitzung geprueft worden. Nutze im Dashboard
-unter Einstellungen den Seitenabzug auf der Gebaeude und der Rekrutierungsseite.
-Mit diesen beiden Dateien lassen sich die Auswahlpfade in einem Zug bestaetigen
-oder korrigieren.
+Die Schnipsel in `src/main/pageScripts.js` sind gegen wortgetreue Auszuege der
+Seiten von Welt 96 geprueft. Die Auszuege liegen unter `test/fixtures`, die
+Tests fuehren die Skripte mit jsdom dagegen aus.
+
+| Ansicht | Stand |
+|---|---|
+| Gebaeude, `screen=main` | geprueft |
+| Dorfliste, `screen=overview_villages` | geprueft |
+| Kaserne, Stall, Werkstatt | geprueft |
+| Botschutz | noch offen, es fehlt ein Abzug im gesperrten Zustand |
+
+Noch nicht gegen eine laufende Sitzung geprueft ist das Zusammenspiel im
+Betrieb, also Anmeldung, Navigation und das tatsaechliche Absenden.
 
 ## Testen ohne Mac
 

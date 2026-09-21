@@ -16,6 +16,11 @@ async function runBuildJob({ bridge, store, logger, village }) {
     return { ok: false, reason: state ? state.error : 'Bauseite nicht lesbar' };
   }
 
+  // Die Stufen merken, der Truppenmanager braucht sie, um zu wissen, welche
+  // Rekrutierungsgebaeude im Dorf ueberhaupt stehen.
+  village.levels = state.levels;
+  store.save();
+
   const keepFilled = Number(config.automation.keepQueueFilled) || 2;
   if (state.queueLength >= keepFilled) {
     return { ok: true, skipped: true, reason: `Bauschleife bereits mit ${state.queueLength} Auftraegen gefuellt` };
