@@ -84,3 +84,12 @@ tr.selected td { background: rgba(125,81,42,.07); }
 
 .badge.observe { background: rgba(178,106,0,.16); color: var(--warn); }
 label.check.big { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+
+.vcard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+.vcard h3 { margin: 0 0 4px; font-size: 15px; }
+.vcard .meta { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.vcard .block { margin-top: 8px; }
+.vcard .block b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: rgba(125,81,42,.10); font-variant-numeric: tabular-nums; }
+.chip.empty { background: transparent; color: var(--muted); }

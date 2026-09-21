@@ -75,6 +75,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  if (bridge) bridge.quitting = true;
   if (scheduler) scheduler.stop('App wird beendet');
 });
 
@@ -89,25 +90,55 @@ ipcMain.handle('automation:stop', () => scheduler.stop('Von Hand angehalten'));
 
 ipcMain.handle('config:patch', (_event, patch) => store.patch(patch));
 
-ipcMain.handle('window:game', () => {
-  bridge.createWindow(true);
-  return { ok: true };
-});
+ipcMain.handle('window:game', () => bridge.setVisible(!bridge.isVisible()));
 
-ipcMain.handle('villages:sync', async () => {
-  const result = await bridge.listVillages();
-  if (!result || !result.ok) {
-    logger.warn(`Doerfer konnten nicht gelesen werden: ${result ? result.error : 'unbekannt'}`);
-    return { ok: false, error: result ? result.error : 'unbekannt' };
+// Welt einlesen: erst die Dorfliste, danach jedes Dorf einmal oeffnen und
+// Gebaeudestufen, Rohstoffe, Bauernhof und Truppenbestand mitnehmen.
+ipcMain.handle('world:scan', async () => {
+  const world = await bridge.ensureWorld();
+  if (!world.ok) {
+    logger.warn(world.error);
+    return { ok: false, error: world.error };
   }
-  for (const entry of result.villages) {
+
+  const list = await bridge.listVillages();
+  if (!list || !list.ok || !list.villages.length) {
+    const error = list && list.error ? list.error : 'Keine Doerfer gefunden. Bist du angemeldet?';
+    logger.warn(`Welt einlesen fehlgeschlagen: ${error}`);
+    return { ok: false, error };
+  }
+
+  logger.info(`${list.villages.length} Doerfer gefunden, Einzelheiten werden gelesen`);
+  let scanned = 0;
+  for (const [index, entry] of list.villages.entries()) {
     const village = store.village(entry.id);
     village.name = entry.name || village.name;
     village.coords = entry.coords || village.coords;
+    village.continent = entry.continent || village.continent;
+
+    send('scan', { done: index, total: list.villages.length, village: village.name });
+    const detail = await bridge.scanVillage(entry.id);
+    if (detail && detail.ok) {
+      village.points = detail.points;
+      village.levels = detail.levels;
+      village.units = detail.units;
+      village.unitsHome = detail.unitsHome;
+      village.pop = detail.pop;
+      village.popMax = detail.popMax;
+      village.resources = detail.resources;
+      village.scannedAt = Date.now();
+      scanned += 1;
+      const troops = Object.values(detail.unitsHome || {}).reduce((sum, n) => sum + n, 0);
+      logger.info(`${village.name}: ${detail.points} Punkte, ${troops} Einheiten daheim, Bauernhof ${detail.pop} von ${detail.popMax}`);
+    } else {
+      logger.warn(`${village.name || entry.id}: ${detail && detail.error ? detail.error : 'nicht lesbar'}`);
+    }
+    store.save();
   }
-  store.save();
-  logger.info(`${result.villages.length} Doerfer eingelesen`);
-  return { ok: true, count: result.villages.length, config: store.get() };
+
+  send('scan', { done: list.villages.length, total: list.villages.length, village: null });
+  logger.info(`Welt eingelesen: ${scanned} von ${list.villages.length} Doerfern vollstaendig`);
+  return { ok: true, count: list.villages.length, scanned, config: store.get() };
 });
 
 ipcMain.handle('village:update', (_event, { id, patch }) => {

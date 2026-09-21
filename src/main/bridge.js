@@ -16,6 +16,7 @@ class Bridge {
     this.logger = logger;
     this.win = null;
     this.busy = false;
+    this.quitting = false;
   }
 
   get host() {
@@ -39,6 +40,14 @@ class Bridge {
         nodeIntegration: false
       }
     });
+    // Das Spielfenster laesst sich schliessen, es verschwindet dann nur aus
+    // dem Blickfeld. Die Anmeldung und die laufende Arbeit bleiben bestehen.
+    this.win.on('close', (event) => {
+      if (this.quitting) return;
+      event.preventDefault();
+      this.win.hide();
+      this.logger.info('Spielfenster in den Hintergrund gelegt, die Arbeit laeuft weiter');
+    });
     this.win.on('closed', () => { this.win = null; });
     this.win.loadURL(isWorldHost(this.host)
       ? `${this.host}/game.php?screen=overview_villages&mode=prod`
@@ -47,8 +56,31 @@ class Bridge {
   }
 
   async ensureWindow() {
-    if (!this.win || this.win.isDestroyed()) this.createWindow(true);
+    if (!this.win || this.win.isDestroyed()) this.createWindow(false);
     return this.win;
+  }
+
+  setVisible(visible) {
+    const win = this.win && !this.win.isDestroyed() ? this.win : this.createWindow(visible);
+    if (visible) win.show(); else win.hide();
+    return { ok: true, visible };
+  }
+
+  isVisible() {
+    return Boolean(this.win && !this.win.isDestroyed() && this.win.isVisible());
+  }
+
+  // Ohne bekannte Welt fuehrt jede Navigation ins Leere. Deshalb wird vor dem
+  // ersten Seitenaufruf geprueft, wo die angemeldete Sitzung steht.
+  async ensureWorld() {
+    if (isWorldHost(this.host)) return { ok: true, host: this.host };
+    const probe = await this.exec(scripts.PROBE);
+    this.adoptWorld(probe);
+    if (isWorldHost(this.host)) return { ok: true, host: this.host };
+    return {
+      ok: false,
+      error: 'Keine Welt erkannt. Bitte im Spielfenster eine Welt waehlen und anmelden.'
+    };
   }
 
   async exec(script) {
@@ -62,6 +94,8 @@ class Bridge {
 
   // Navigiert das Spielfenster und wartet, bis die Seite steht.
   async navigate(screen, villageId, params = {}) {
+    const world = await this.ensureWorld();
+    if (!world.ok) return world;
     const win = await this.ensureWindow();
     const query = new URLSearchParams({ screen, ...params });
     if (villageId) query.set('village', String(villageId));
@@ -96,12 +130,21 @@ class Bridge {
   }
 
   async listVillages() {
-    await this.navigate('overview_villages', null, { mode: 'prod' });
+    const nav = await this.navigate('overview_villages', null, { mode: 'prod' });
+    if (nav && nav.ok === false) return nav;
     return this.exec(scripts.LIST_VILLAGES);
   }
 
+  // Liest ein einzelnes Dorf vollstaendig aus, ein Seitenaufruf genuegt.
+  async scanVillage(villageId) {
+    const nav = await this.navigate('overview', villageId);
+    if (nav && nav.ok === false) return nav;
+    return this.exec(scripts.SCAN_VILLAGE);
+  }
+
   async readBuild(villageId) {
-    await this.navigate('main', villageId);
+    const nav = await this.navigate('main', villageId);
+    if (nav && nav.ok === false) return nav;
     return this.exec(scripts.READ_BUILD);
   }
 
@@ -127,7 +170,8 @@ class Bridge {
   // Es gibt keine gemeinsame Rekrutierungsseite. Kaserne, Stall und Werkstatt
   // haben je eine eigene Ansicht, darum wird das Gebaeude mitgegeben.
   async readTrain(villageId, building) {
-    await this.navigate(building, villageId);
+    const nav = await this.navigate(building, villageId);
+    if (nav && nav.ok === false) return nav;
     return this.exec(scripts.READ_TRAIN);
   }
 

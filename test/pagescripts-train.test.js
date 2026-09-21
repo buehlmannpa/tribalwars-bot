@@ -115,3 +115,32 @@ test('submitTrain ruehrt fremde Einheiten nicht an', () => {
   assert.strictEqual(window.document.querySelector('#spear_0').value, '');
   assert.strictEqual(window.document.querySelector('#sword_0').value, '50');
 });
+
+test('SCAN_VILLAGE liest Gebaeudestufen, Punkte und Bauernhof', () => {
+  const { run } = openPage('overview-village.html', { screen: 'overview' });
+  const state = run(scripts.SCAN_VILLAGE);
+  assert.strictEqual(state.ok, true);
+  assert.strictEqual(state.id, '2201');
+  assert.strictEqual(state.points, 6782);
+  assert.strictEqual(state.levels.main, 23);
+  assert.strictEqual(state.levels.wall, 20);
+  assert.strictEqual(state.pop, 8961);
+  assert.strictEqual(state.popMax, 10848);
+  assert.strictEqual(state.resources.storage, 215219);
+});
+
+test('SCAN_VILLAGE unterscheidet Truppen daheim und Truppen gesamt', () => {
+  const { run } = openPage('overview-village.html', { screen: 'overview' });
+  const state = run(scripts.SCAN_VILLAGE);
+  assert.strictEqual(state.units.spear, 40);
+  assert.strictEqual(state.unitsHome.spear, 35);
+  assert.strictEqual(state.units.ram, 20);
+  assert.strictEqual(state.unitsHome.ram, 20);
+});
+
+test('SCAN_VILLAGE kommt ohne Truppenanzeige zurecht', () => {
+  const { run } = openPage('villages-ch96.html', { screen: 'overview' });
+  const state = run(scripts.SCAN_VILLAGE);
+  assert.strictEqual(state.ok, true);
+  assert.strictEqual(Object.keys(state.unitsHome).length, 0);
+});

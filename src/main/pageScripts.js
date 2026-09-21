@@ -292,9 +292,54 @@ const submitTrain = (orders) => wrap(`
   return { ok: true, ordered: written };
 `);
 
+// Liest eine Dorfuebersicht vollstaendig aus: Gebaeudestufen, Rohstoffe,
+// Bauernhof und den Truppenbestand. Geprueft gegen die Dorfuebersicht der
+// Spielversion 8.435. Ein einziger Seitenaufruf je Dorf genuegt damit.
+const SCAN_VILLAGE = wrap(`
+  var gd = window.game_data;
+  if (!gd || !gd.village) return { ok: false, error: 'Keine Spieldaten auf der Seite' };
+
+  var levels = {};
+  var src = gd.village.buildings || {};
+  Object.keys(src).forEach(function (key) { levels[key] = Number(src[key]); });
+
+  // Die Truppenanzeige fuehrt zwei Bloecke: alle Einheiten des Dorfes und
+  // jene, die gerade daheim stehen. Einheiten ohne Bestand fehlen ganz.
+  var readUnits = function (selector) {
+    var out = {};
+    var nodes = document.querySelectorAll(selector);
+    Array.prototype.forEach.call(nodes, function (node) {
+      var unit = node.getAttribute('data-count');
+      if (!unit) return;
+      out[unit] = Number(String(node.textContent).replace(/[^0-9]/g, '')) || 0;
+    });
+    return out;
+  };
+
+  return {
+    ok: true,
+    id: String(gd.village.id),
+    name: gd.village.name,
+    coords: gd.village.x + '|' + gd.village.y,
+    points: Number(gd.village.points || 0),
+    levels: levels,
+    units: readUnits('#unit_overview_table tr.all_unit strong[data-count]'),
+    unitsHome: readUnits('#unit_overview_table tr.home_unit strong[data-count]'),
+    resources: {
+      wood: Math.floor(gd.village.wood),
+      stone: Math.floor(gd.village.stone),
+      iron: Math.floor(gd.village.iron),
+      storage: Number(gd.village.storage_max)
+    },
+    pop: Number(gd.village.pop),
+    popMax: Number(gd.village.pop_max),
+    incomings: gd.player ? Number(gd.player.incomings || 0) : 0
+  };
+`);
+
 // Liefert die rohe Seite, damit Auswahlpfade gegen die echte Welt geprueft werden koennen.
 const CAPTURE = wrap(`
   return { ok: true, url: location.href, html: document.documentElement.outerHTML };
 `);
 
-module.exports = { PROBE, LIST_VILLAGES, READ_BUILD, READ_TRAIN, CAPTURE, clickBuild, canBuild, submitTrain };
+module.exports = { PROBE, LIST_VILLAGES, READ_BUILD, READ_TRAIN, SCAN_VILLAGE, CAPTURE, clickBuild, canBuild, submitTrain };

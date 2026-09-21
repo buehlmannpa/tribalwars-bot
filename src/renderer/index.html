@@ -25,6 +25,7 @@
 
   <nav class="tabs">
     <button class="tab active" data-tab="villages">Doerfer</button>
+    <button class="tab" data-tab="world">Weltuebersicht</button>
     <button class="tab" data-tab="templates">Vorlagen</button>
     <button class="tab" data-tab="settings">Einstellungen</button>
     <button class="tab" data-tab="log">Protokoll</button>
@@ -33,9 +34,9 @@
   <main>
     <section id="tab-villages" class="panel active">
       <div class="row">
-        <button id="btnSync" class="primary">Doerfer einlesen</button>
+        <button id="btnScan" class="primary">Welt einlesen</button>
         <button id="btnProbe">Status pruefen</button>
-        <span class="muted">Melde dich zuerst im Spielfenster an, danach die Doerfer einlesen.</span>
+        <span class="muted" id="scanHint">Melde dich zuerst im Spielfenster an, danach die Welt einlesen.</span>
       </div>
 
       <div class="assignbar">
@@ -58,12 +59,21 @@
         <thead>
           <tr>
             <th class="tick"><input type="checkbox" id="selAll" title="Alle auswaehlen" /></th>
-            <th>Dorf</th><th>Koordinaten</th><th>Bauvorlage</th><th>Bauen</th>
+            <th>Dorf</th><th>Koordinaten</th><th>Punkte</th><th>Bauernhof</th>
+            <th>Bauvorlage</th><th>Bauen</th>
             <th>Truppenvorlage</th><th>Rekrutieren</th><th>Letzter Durchlauf</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
+    </section>
+
+    <section id="tab-world" class="panel">
+      <div class="row">
+        <button id="btnScan2" class="primary">Welt einlesen</button>
+        <span class="muted">Ein Durchgang oeffnet jedes Dorf einmal und liest Gebaeude, Rohstoffe, Bauernhof und Truppen.</span>
+      </div>
+      <div id="worldView"></div>
     </section>
 
     <section id="tab-templates" class="panel">

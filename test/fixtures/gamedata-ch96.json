@@ -47,7 +47,8 @@
       "storage": "27",
       "hide": "10",
       "wall": "20"
-    }
+    },
+    "points": 6782
   },
   "csrf": "57fa980b",
   "world": "ch96",

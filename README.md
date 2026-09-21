@@ -15,10 +15,15 @@ Accounts. Der Entscheid liegt bei dir.
 ## Was die App kann
 
 1. Eigenes Spielfenster mit dauerhaft gespeicherter Anmeldung, du kannst darin
-   jederzeit selbst spielen und eingreifen.
+   jederzeit selbst spielen und eingreifen. Es laesst sich schliessen, dann
+   arbeitet es unsichtbar weiter, und mit dem Knopf Spielfenster holst du es
+   zurueck.
 2. Die Welt wird beim ersten Anmelden automatisch aus dem Spielfenster
    uebernommen, egal ob Schweiz, Deutschland oder eine andere Landesfassung.
-3. Doerfer aus der Produktionsuebersicht einlesen.
+3. **Welt einlesen** mit einem Knopf: die App liest die Dorfliste und danach
+   jedes Dorf einmal aus, also Gebaeudestufen, Rohstoffe, Speicher, Bauernhof
+   und Truppenbestand, getrennt nach daheim und gesamt. Das Ergebnis steht
+   unter Weltuebersicht.
 4. Beliebig viele Bau und Truppenplaene anlegen, duplizieren und bearbeiten,
    danach in der Dorfliste mehreren Doerfern auf einmal zuweisen.
 5. Bauplaene abarbeiten, inklusive der Auftraege, die bereits in der
@@ -74,14 +79,16 @@ nichts im Spiel.
 1. App starten. Es oeffnen sich das Dashboard und das Spielfenster.
 2. Im Spielfenster deine Welt waehlen und anmelden. Die Anmeldung bleibt
    gespeichert, die Welt wird uebernommen und oben im Dashboard angezeigt.
-3. Auf **Status pruefen** klicken. Im Protokoll muss angemeldet stehen.
-4. Auf **Doerfer einlesen** klicken. Die Dorfliste fuellt sich.
-5. Unter Vorlagen die gewuenschten Plaene anlegen oder die mitgelieferten
+3. Auf **Welt einlesen** klicken. Die App oeffnet jedes Dorf einmal und
+   sammelt alles ein. Der Fortschritt steht neben dem Knopf und im Protokoll,
+   das Ergebnis unter Weltuebersicht. Das Spielfenster darfst du dabei
+   schliessen, es arbeitet im Hintergrund weiter.
+4. Unter Vorlagen die gewuenschten Plaene anlegen oder die mitgelieferten
    verwenden. Danach in der Dorfliste die Doerfer ankreuzen und ueber die
    Leiste oben den Bau und den Truppenplan zuweisen.
-6. Auf **Automatik starten** klicken. Die Kennzeichnung oben zeigt beobachtet.
-7. Eine halbe Stunde laufen lassen und das Protokoll lesen.
-8. Sieht das stimmig aus, unter Einstellungen den Haken bei nur beobachten
+5. Auf **Automatik starten** klicken. Die Kennzeichnung oben zeigt beobachtet.
+6. Eine halbe Stunde laufen lassen und das Protokoll lesen.
+7. Sieht das stimmig aus, unter Einstellungen den Haken bei nur beobachten
    entfernen. Ab da handelt die App selbstaendig.
 
 Zum Anhalten genuegt der Knopf Anhalten oder Befehlstaste und Punkt.
@@ -136,6 +143,7 @@ echter Spielseiten der Version 8.435 geprueft. Die Auszuege liegen unter
 |---|---|
 | Gebaeude, `screen=main` | geprueft |
 | Dorfliste, `screen=overview_villages` | geprueft |
+| Dorfuebersicht, `screen=overview` | geprueft |
 | Kaserne, Stall, Werkstatt | geprueft |
 | Botschutz | noch offen, es fehlt ein Abzug im gesperrten Zustand |
 

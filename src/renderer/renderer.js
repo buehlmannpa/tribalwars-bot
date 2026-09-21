@@ -18,6 +18,7 @@ async function refresh() {
 function renderAll() {
   renderStatus(state.status);
   renderVillages();
+  renderWorld();
   renderTemplateLists();
   renderSettings();
   renderKeyHints();
@@ -55,7 +56,7 @@ function renderVillages() {
   for (const id of [...selected]) if (!state.config.villages[id]) selected.delete(id);
   if (!villages.length) {
     const row = document.createElement('tr');
-    row.innerHTML = '<td colspan="8" class="muted">Noch keine Doerfer. Melde dich im Spielfenster an und klicke auf Doerfer einlesen.</td>';
+    row.innerHTML = '<td colspan="10" class="muted">Noch keine Doerfer. Melde dich im Spielfenster an und klicke auf Welt einlesen.</td>';
     body.appendChild(row);
     renderSelectionCount();
     return;
@@ -66,6 +67,8 @@ function renderVillages() {
     row.appendChild(tickCell(village, row));
     row.appendChild(cell(village.name || village.id));
     row.appendChild(cell(village.coords || ''));
+    row.appendChild(cell(village.points ? String(village.points) : '?'));
+    row.appendChild(cell(village.popMax ? `${village.pop} / ${village.popMax}` : '?'));
     row.appendChild(selectCell(Object.keys(state.config.buildTemplates), village.buildTemplate, (value) => {
       update(village.id, { buildTemplate: value || null });
     }));
@@ -207,6 +210,81 @@ function renderKeyHints() {
   $('troopKeys').textContent = 'Gueltige Einheiten: ' + UNIT_KEYS.map(([k]) => k).join(' ');
 }
 
+const B_SHORT = {
+  main: 'Hauptgebaeude', barracks: 'Kaserne', stable: 'Stall', garage: 'Werkstatt',
+  church: 'Kirche', snob: 'Adelshof', smith: 'Schmiede', place: 'Versammlungsplatz',
+  statue: 'Statue', market: 'Marktplatz', wood: 'Holzfaeller', stone: 'Lehmgrube',
+  iron: 'Eisenmine', farm: 'Bauernhof', storage: 'Speicher', hide: 'Versteck',
+  wall: 'Wall', watchtower: 'Wachturm'
+};
+const U_SHORT = {
+  spear: 'Speer', sword: 'Schwert', axe: 'Axt', archer: 'Bogen', spy: 'Spaeher',
+  light: 'LKav', marcher: 'BBogen', heavy: 'SKav', ram: 'Ramme', catapult: 'Kata',
+  knight: 'Paladin', snob: 'Adel', militia: 'Miliz'
+};
+
+// Die Weltuebersicht zeigt, was beim Einlesen gefunden wurde.
+function renderWorld() {
+  const box = $('worldView');
+  const villages = Object.values(state.config.villages)
+    .sort((a, b) => (b.points || 0) - (a.points || 0));
+  box.innerHTML = '';
+  if (!villages.length) {
+    box.innerHTML = '<p class="muted">Noch nichts eingelesen. Melde dich im Spielfenster an und klicke auf Welt einlesen.</p>';
+    return;
+  }
+  for (const village of villages) {
+    const card = document.createElement('div');
+    card.className = 'vcard';
+
+    const title = document.createElement('h3');
+    title.textContent = village.name || village.id;
+    card.appendChild(title);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const parts = [village.coords || '', village.continent || ''];
+    if (village.points) parts.push(`${village.points} Punkte`);
+    if (village.popMax) parts.push(`Bauernhof ${village.pop} von ${village.popMax}`);
+    if (village.resources) {
+      parts.push(`Holz ${village.resources.wood}, Lehm ${village.resources.stone}, Eisen ${village.resources.iron} von ${village.resources.storage}`);
+    }
+    if (village.scannedAt) parts.push(`gelesen um ${new Date(village.scannedAt).toLocaleTimeString('de-CH')}`);
+    meta.textContent = parts.filter(Boolean).join(' · ');
+    card.appendChild(meta);
+
+    card.appendChild(chipBlock('Gebaeude', village.levels, B_SHORT, 'noch nicht eingelesen'));
+    card.appendChild(chipBlock('Truppen daheim', village.unitsHome, U_SHORT, 'keine Einheiten daheim'));
+    card.appendChild(chipBlock('Truppen gesamt', village.units, U_SHORT, 'keine Einheiten'));
+    box.appendChild(card);
+  }
+}
+
+function chipBlock(label, values, names, emptyText) {
+  const block = document.createElement('div');
+  block.className = 'block';
+  const head = document.createElement('b');
+  head.textContent = label;
+  block.appendChild(head);
+  const chips = document.createElement('div');
+  chips.className = 'chips';
+  const entries = Object.entries(values || {}).filter(([, value]) => Number(value) > 0);
+  if (!entries.length) {
+    const chip = document.createElement('span');
+    chip.className = 'chip empty';
+    chip.textContent = emptyText;
+    chips.appendChild(chip);
+  }
+  for (const [key, value] of entries) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = `${names[key] || key} ${value}`;
+    chips.appendChild(chip);
+  }
+  block.appendChild(chips);
+  return block;
+}
+
 function renderSettings() {
   const a = state.config.automation;
   $('host').value = state.config.world.host;
@@ -293,9 +371,33 @@ $('btnProbe').addEventListener('click', () => window.api.invoke('probe'));
 $('btnCapture').addEventListener('click', () => window.api.invoke('capture', { label: 'seite' }));
 $('btnClearLog').addEventListener('click', () => { $('log').innerHTML = ''; });
 
-$('btnSync').addEventListener('click', async () => {
-  const result = await window.api.invoke('villages:sync');
-  if (result && result.config) { state.config = result.config; renderVillages(); }
+async function scanWorld(button) {
+  const labels = ['btnScan', 'btnScan2'];
+  for (const id of labels) $(id).disabled = true;
+  $('scanHint').textContent = 'Welt wird eingelesen, das Spielfenster arbeitet im Hintergrund.';
+  try {
+    const result = await window.api.invoke('world:scan');
+    if (result && result.config) {
+      state.config = result.config;
+      renderVillages();
+      renderWorld();
+      $('scanHint').textContent = `${result.scanned} von ${result.count} Doerfern vollstaendig eingelesen.`;
+    } else {
+      $('scanHint').textContent = result && result.error ? result.error : 'Einlesen fehlgeschlagen.';
+    }
+  } finally {
+    for (const id of labels) $(id).disabled = false;
+  }
+}
+
+$('btnScan').addEventListener('click', () => scanWorld());
+$('btnScan2').addEventListener('click', () => scanWorld());
+
+window.api.on('scan', (progress) => {
+  if (!progress) return;
+  $('scanHint').textContent = progress.village
+    ? `Lese ${progress.village}, Dorf ${progress.done + 1} von ${progress.total}`
+    : `${progress.total} Doerfer gelesen`;
 });
 
 $('buildSelect').addEventListener('change', loadBuildTemplate);
