@@ -64,7 +64,7 @@ app.whenReady().then(() => {
   store = new Store();
   logger = new Logger();
   bridge = new Bridge({ store, logger });
-  world = new WorldData({ store, logger });
+  world = new WorldData({ store, logger, bridge });
   scheduler = new Scheduler({ bridge, store, logger, world, onStatus: (status) => send('status', status) });
 
   logger.onEntry((entry) => send('log', entry));

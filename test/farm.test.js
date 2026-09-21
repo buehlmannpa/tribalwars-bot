@@ -163,3 +163,78 @@ test('Ist die Ausbildung leer, wird wieder bestellt', async () => {
   assert.strictEqual(result.acted, true);
   assert.deepStrictEqual(bestellt, [{ spear: 50 }]);
 });
+
+// --------------------------------------------------------- Abruf der Weltdaten
+
+const { WorldData, describeError } = require('../src/main/worldData');
+
+const KONFIG = '<config><speed>1</speed><unit_speed>1</unit_speed></config>';
+
+function makeWorld(strategies, host = 'https://ch96.staemme.ch') {
+  const store = { get: () => ({ world: { host } }) };
+  const meldungen = [];
+  const logger = { info: (m) => meldungen.push(m), warn: (m) => meldungen.push(m) };
+  return { world: new WorldData({ store, logger, strategies }), meldungen };
+}
+
+test('Der Abruf nimmt den ersten Weg, der funktioniert', async () => {
+  const benutzt = [];
+  const { world } = makeWorld([
+    ['erster', async () => { benutzt.push('erster'); return 'inhalt'; }],
+    ['zweiter', async () => { benutzt.push('zweiter'); return 'inhalt'; }]
+  ]);
+  const text = await world.fetchText('https://ch96.staemme.ch/map/village.txt');
+  assert.strictEqual(text, 'inhalt');
+  assert.deepStrictEqual(benutzt, ['erster']);
+});
+
+test('Scheitert ein Weg, wird der naechste versucht', async () => {
+  const benutzt = [];
+  const { world, meldungen } = makeWorld([
+    ['erster', async () => { benutzt.push('erster'); throw new Error('fetch failed'); }],
+    ['zweiter', async () => { benutzt.push('zweiter'); return 'inhalt'; }]
+  ]);
+  assert.strictEqual(await world.fetchText('https://ch96.staemme.ch/map/village.txt'), 'inhalt');
+  assert.deepStrictEqual(benutzt, ['erster', 'zweiter']);
+  assert.ok(meldungen.some((m) => m.includes('zweiter')));
+});
+
+test('Scheitern alle Wege, nennt die Meldung jeden Grund', async () => {
+  const { world } = makeWorld([
+    ['erster', async () => { const e = new Error('fetch failed'); e.cause = { code: 'ENOTFOUND' }; throw e; }],
+    ['zweiter', async () => { throw new Error('Antwort 403'); }]
+  ]);
+  await assert.rejects(
+    () => world.fetchText('https://ch96.staemme.ch/map/village.txt'),
+    (err) => /ENOTFOUND/.test(err.message) && /403/.test(err.message)
+  );
+});
+
+test('describeError holt den wahren Grund unter fetch failed hervor', () => {
+  const err = new Error('fetch failed');
+  err.cause = { code: 'ECONNREFUSED', message: 'connect ECONNREFUSED' };
+  assert.match(describeError(err), /fetch failed/);
+  assert.match(describeError(err), /ECONNREFUSED/);
+});
+
+test('Ohne feststehende Welt wird gar nicht erst geladen', async () => {
+  const { world } = makeWorld([['egal', async () => { throw new Error('darf nicht aufgerufen werden'); }]], 'https://www.staemme.ch');
+  const result = await world.refresh();
+  assert.strictEqual(result.ok, false);
+  assert.match(result.error, /keine Welt/i);
+});
+
+test('Ein vollstaendiger Abruf liest Karte, Einheiten und Weltfaktoren', async () => {
+  const { world } = makeWorld([['prueflauf', async (url) => {
+    if (url.includes('village.txt')) return KARTE;
+    if (url.includes('get_unit_info')) return EINHEITEN;
+    return KONFIG;
+  }]]);
+  const result = await world.refresh();
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.villages, 5);
+  assert.strictEqual(result.barbarians, 3);
+  assert.strictEqual(world.units.light.speed, 10);
+  assert.strictEqual(world.unitSpeed, 1);
+  assert.strictEqual(world.barbarians().length, 3);
+});

@@ -176,6 +176,7 @@ echter Spielseiten der Version 8.435 geprueft. Die Auszuege liegen unter
 | Dorfuebersicht, `screen=overview` | geprueft |
 | Kaserne, Stall, Werkstatt | geprueft |
 | Karte und Einheitendaten der Welt | geprueft, oeffentlich abrufbar |
+| Abruf dieser Dateien | ueber die Netzschicht von Electron, die Sitzung der Spielansicht oder die Spielansicht selbst |
 | Versammlungsplatz, Versand des Angriffs | **noch nicht geprueft**, bricht bei Abweichung ab |
 | Botschutz | noch offen, es fehlt ein Abzug im gesperrten Zustand |
 

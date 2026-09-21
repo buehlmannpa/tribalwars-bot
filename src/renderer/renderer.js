@@ -661,7 +661,7 @@ $('btnWorldRefresh').addEventListener('click', async () => {
   const result = await window.api.invoke('world:refresh');
   $('worldDataInfo').textContent = result && result.ok
     ? `${nf(result.villages)} Doerfer geladen, davon ${nf(result.barbarians)} Barbarendoerfer.`
-    : `Laden fehlgeschlagen: ${result && result.error ? result.error : 'unbekannt'}`;
+    : `Laden fehlgeschlagen. ${result && result.error ? result.error : 'Grund unbekannt'}`;
 });
 for (const id of ['farmEnabled', 'farmHours', 'farmWait']) $(id).addEventListener('change', saveFarm);
 $('btnDeactivate').addEventListener('click', () => assignToSelection({ buildActive: false, troopActive: false }, 'Automatik pausiert'));

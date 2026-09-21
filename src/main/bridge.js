@@ -262,6 +262,31 @@ class Bridge {
     return { ...result, confirmed: true };
   }
 
+  // Holt eine Datei der Welt aus der Spielansicht heraus. Da die Ansicht auf
+  // derselben Adresse steht, ist das ein Abruf im eigenen Haus und geht durch
+  // jede Zugangsbeschraenkung, die auch das Spiel selbst passiert.
+  async fetchText(url) {
+    const world = await this.ensureWorld();
+    if (!world.ok) return world;
+
+    const probe = await this.exec(scripts.PROBE);
+    const origin = probe && probe.ok ? probe.origin : null;
+    if (!origin || !String(url).startsWith(origin)) {
+      const nav = await this.navigate('overview_villages', null, { mode: 'prod' });
+      if (nav && nav.ok === false) return nav;
+    }
+
+    return this.exec(`(function () {
+      return fetch(${JSON.stringify(url)}, { credentials: 'include' })
+        .then(function (response) {
+          if (!response.ok) throw new Error('Antwort ' + response.status);
+          return response.text();
+        })
+        .then(function (text) { return { ok: true, text: text }; })
+        .catch(function (err) { return { ok: false, error: String(err && err.message ? err.message : err) }; });
+    })();`);
+  }
+
   // Zahl der eigenen ausgehenden Befehle eines Dorfes.
   async readCommands(villageId) {
     const nav = await this.navigate('overview', villageId);
