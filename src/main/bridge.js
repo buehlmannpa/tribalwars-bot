@@ -109,7 +109,20 @@ class Bridge {
     }
   }
 
-  // Navigiert das Spielfenster und wartet, bis die Seite steht.
+  // Ohne bekannte Welt fuehrt jede Navigation ins Leere. Deshalb wird vor dem
+  // ersten Seitenaufruf geprueft, wo die angemeldete Sitzung steht.
+  async ensureWorld() {
+    if (isWorldHost(this.host)) return { ok: true, host: this.host };
+    const probe = await this.exec(scripts.PROBE);
+    this.adoptWorld(probe);
+    if (isWorldHost(this.host)) return { ok: true, host: this.host };
+    return {
+      ok: false,
+      error: 'Keine Welt erkannt. Bitte in der Spielansicht eine Welt waehlen und anmelden.'
+    };
+  }
+
+  // Navigiert die Spielansicht und wartet, bis die Seite steht.
   async navigate(screen, villageId, params = {}) {
     const world = await this.ensureWorld();
     if (!world.ok) return world;
