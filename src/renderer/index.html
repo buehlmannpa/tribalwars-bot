@@ -88,6 +88,17 @@
         <label>Wartezeit je Dorf in Minuten <input id="cooldown" type="number" min="1" /></label>
         <label>Bauschleife fuellen bis <input id="keepQueue" type="number" min="1" max="5" /></label>
         <label>Bauernhof Puffer <input id="farmBuffer" type="number" min="0" /></label>
+        <label>Kleinste Bestellmenge <input id="minBatch" type="number" min="1" /></label>
+        <label>Vorrang bei Rohstoffen
+          <select id="priority">
+            <option value="build">Bauplan zuerst</option>
+            <option value="troops">Truppen zuerst</option>
+            <option value="alternate">abwechselnd</option>
+          </select>
+        </label>
+        <label>Puffer Holz <input id="bufWood" type="number" min="0" /></label>
+        <label>Puffer Lehm <input id="bufStone" type="number" min="0" /></label>
+        <label>Puffer Eisen <input id="bufIron" type="number" min="0" /></label>
       </div>
       <h2>Sicherungen</h2>
       <label class="check"><input id="pauseIncoming" type="checkbox" /> Durchlauf bei eingehenden Angriffen ueberspringen</label>

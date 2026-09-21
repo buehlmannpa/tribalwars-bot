@@ -81,3 +81,19 @@ noch nicht gegen eine angemeldete Sitzung geprueft worden. Nutze im Dashboard
 unter Einstellungen den Seitenabzug auf der Gebaeude und der Rekrutierungsseite.
 Mit diesen beiden Dateien lassen sich die Auswahlpfade in einem Zug bestaetigen
 oder korrigieren.
+
+## Testen ohne Mac
+
+Zwei Wege, um die Entscheidungen zu pruefen, bevor die App je eine echte Welt
+beruehrt:
+
+```bash
+npm test                      # Einheitstests der Logik
+node tools/simulate.js 600            # Trockenlauf, Vorrang Bauplan
+node tools/simulate.js 600 troops     # Trockenlauf, Vorrang Truppen
+```
+
+Der Trockenlauf bildet ein Dorf mit Rohstoffwachstum, Bauzeiten und
+Bauernhofplaetzen nach und laesst Dorfmanager und Truppenmanager darauf
+arbeiten. Zusaetzlich liegt in `tools/demo.html` eine anklickbare Fassung fuer
+den Browser mit derselben Entscheidungslogik.

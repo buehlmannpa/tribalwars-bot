@@ -22,9 +22,29 @@ async function runTrainJob({ bridge, store, logger, village }) {
     return { ok: true, skipped: true, reason: 'Keine freien Bauernhofplaetze mehr, Puffer beruecksichtigt' };
   }
 
-  const order = chooseOrder({ template, state, freePop });
+  // Rohstoffpuffer wie im Vorbild: was unter dem Puffer liegt, bleibt dem
+  // Bauplan vorbehalten und wird nicht verbaut.
+  const buffer = config.automation.resourceBuffer || {};
+  const shortOf = ['wood', 'stone', 'iron'].find((key) => state.resources[key] < (Number(buffer[key]) || 0));
+  if (shortOf) {
+    return { ok: true, skipped: true, reason: `Rohstoffpuffer noch nicht erreicht, ${shortOf} wird geschont` };
+  }
+
+  const minBatch = Number(config.automation.minRecruitBatch) || 1;
+  const order = chooseOrder({ template, state, freePop, minBatch });
   if (!order) {
-    return { ok: true, done: true, reason: 'Zielbestand erreicht oder nichts rekrutierbar' };
+    // Unterscheiden, ob die Vorlage erfuellt ist oder ob nur die Rohstoffe
+    // fehlen. Im zweiten Fall spart der Manager und meldet das nach oben.
+    const stillMissing = Object.entries(template).some(([unit, target]) => {
+      const info = state.units[unit];
+      if (!info || info.disabled) return false;
+      const present = Number.isFinite(info.present) ? info.present : 0;
+      return target - present > 0;
+    });
+    if (stillMissing) {
+      return { ok: true, skipped: true, waiting: true, reason: 'Rohstoffe reichen noch nicht fuer eine sinnvolle Bestellung' };
+    }
+    return { ok: true, done: true, reason: 'Zielbestand erreicht' };
   }
 
   const result = await bridge.train(village.id, { [order.unit]: order.amount });
@@ -37,7 +57,7 @@ async function runTrainJob({ bridge, store, logger, village }) {
 }
 
 // Waehlt die Einheit mit dem geringsten Fortschritt und ein passendes Paket.
-function chooseOrder({ template, state, freePop }) {
+function chooseOrder({ template, state, freePop, minBatch = 1 }) {
   const candidates = [];
   for (const [unit, target] of Object.entries(template)) {
     if (!target) continue;
@@ -49,9 +69,15 @@ function chooseOrder({ template, state, freePop }) {
     const meta = UNIT_BY_KEY[unit];
     const packet = meta ? meta.packet : 10;
     const pop = meta && meta.pop ? meta.pop : 1;
-    let amount = Math.min(missing, packet, Math.floor(freePop / pop));
-    if (Number.isFinite(info.max) && info.max !== null) amount = Math.min(amount, info.max);
+    const desired = Math.min(missing, packet, Math.floor(freePop / pop));
+    if (desired <= 0) continue;
+    const affordable = Number.isFinite(info.max) && info.max !== null ? info.max : desired;
+    const amount = Math.min(desired, affordable);
     if (amount <= 0) continue;
+    // Einzelne Einheiten zu bestellen nimmt dem Bauplan die Rohstoffe weg.
+    // Reicht es nicht fuer das gewuenschte Paket, wird erst ab der kleinsten
+    // sinnvollen Menge bestellt, sonst wartet der Manager.
+    if (amount < desired && amount < minBatch) continue;
     candidates.push({ unit, amount, progress: present / target });
   }
   if (!candidates.length) return null;

@@ -145,6 +145,11 @@ function renderSettings() {
   $('cooldown').value = a.villageCooldownMinutes;
   $('keepQueue').value = a.keepQueueFilled;
   $('farmBuffer').value = a.farmBuffer;
+  $('minBatch').value = a.minRecruitBatch;
+  $('priority').value = a.priority;
+  $('bufWood').value = a.resourceBuffer.wood;
+  $('bufStone').value = a.resourceBuffer.stone;
+  $('bufIron').value = a.resourceBuffer.iron;
   $('pauseIncoming').checked = a.pauseOnIncoming;
   $('keepAwake').checked = a.keepAwake;
   $('nightEnabled').checked = a.nightPause.enabled;
@@ -162,6 +167,13 @@ async function saveSettings() {
       villageCooldownMinutes: Number($('cooldown').value),
       keepQueueFilled: Number($('keepQueue').value),
       farmBuffer: Number($('farmBuffer').value),
+      minRecruitBatch: Number($('minBatch').value),
+      priority: $('priority').value,
+      resourceBuffer: {
+        wood: Number($('bufWood').value),
+        stone: Number($('bufStone').value),
+        iron: Number($('bufIron').value)
+      },
       pauseOnIncoming: $('pauseIncoming').checked,
       keepAwake: $('keepAwake').checked,
       nightPause: {
@@ -246,6 +258,7 @@ $('btnDeleteTroop').addEventListener('click', async () => {
 });
 
 for (const id of ['host', 'minDelay', 'maxDelay', 'maxActions', 'cooldown', 'keepQueue', 'farmBuffer',
+  'minBatch', 'priority', 'bufWood', 'bufStone', 'bufIron',
   'pauseIncoming', 'keepAwake', 'nightEnabled', 'nightStart', 'nightEnd']) {
   $(id).addEventListener('change', saveSettings);
 }

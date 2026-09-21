@@ -1,0 +1,582 @@
+<title>Stämme Manager Testlauf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #e9eae6;
+    --surface: #fafaf8;
+    --surface-2: #f1f2ee;
+    --ink: #1f2421;
+    --muted: #6b7169;
+    --line: #d3d6cf;
+    --accent: #3f6b5c;
+    --accent-soft: rgba(63, 107, 92, .12);
+    --warn: #9a6416;
+    --bad: #a3342c;
+    --ok: #3f6b5c;
+    --display: "Spectral", Georgia, serif;
+    --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #15181a;
+      --surface: #1d2124;
+      --surface-2: #23282b;
+      --ink: #e4e7e3;
+      --muted: #8e9790;
+      --line: #333a3d;
+      --accent: #6fa68f;
+      --accent-soft: rgba(111, 166, 143, .16);
+      --warn: #d0973f;
+      --bad: #d4736a;
+      --ok: #6fa68f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #15181a;
+    --surface: #1d2124;
+    --surface-2: #23282b;
+    --ink: #e4e7e3;
+    --muted: #8e9790;
+    --line: #333a3d;
+    --accent: #6fa68f;
+    --accent-soft: rgba(111, 166, 143, .16);
+    --warn: #d0973f;
+    --bad: #d4736a;
+    --ok: #6fa68f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--body); font-size: 15px; line-height: 1.5;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; padding-block: 24px 48px; }
+  header.top { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 20px; }
+  h1 { font-family: var(--display); font-size: 30px; font-weight: 600; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  .sub { color: var(--muted); font-size: 13px; max-width: 62ch; margin: 6px 0 0; }
+  .bar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 20px;
+  }
+  .clock { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .clock b { color: var(--ink); font-weight: 500; }
+  .pill {
+    font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+    background: var(--surface-2); color: var(--muted); letter-spacing: .02em;
+  }
+  .pill.on { background: var(--accent-soft); color: var(--accent); }
+  button {
+    font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  .grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 840px) { .grid { grid-template-columns: 1fr; } }
+  section.card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px;
+  }
+  section.card + section.card { margin-top: 20px; }
+  h2 {
+    font-family: var(--body); font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .09em; color: var(--muted); margin: 0 0 12px;
+  }
+  .village { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+  .village:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  .vhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .vname { font-family: var(--display); font-size: 19px; font-weight: 600; }
+  .coords { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .res { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
+  .res div { font-family: var(--mono); font-size: 12px; }
+  .res span { display: block; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-family: var(--body); }
+  .meter { height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--accent); }
+  .assign { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  select, input[type="number"] {
+    font: inherit; font-size: 13px; width: 100%; margin-top: 4px; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); color: var(--ink);
+  }
+  .toggles { display: flex; gap: 16px; margin-top: 10px; }
+  .toggles label { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink); }
+  .toggles input { margin: 0; }
+  .state { margin-top: 10px; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .state b { color: var(--ink); font-weight: 500; }
+  .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .log {
+    font-family: var(--mono); font-size: 12px; line-height: 1.7;
+    max-height: 340px; overflow-y: auto; border-top: 1px solid var(--line); padding-top: 10px;
+  }
+  .log p { margin: 0; display: flex; gap: 10px; border-bottom: 1px solid var(--surface-2); padding: 2px 0; }
+  .log time { color: var(--muted); flex: 0 0 62px; font-variant-numeric: tabular-nums; }
+  .log .act { color: var(--ok); font-weight: 500; }
+  .log .hold { color: var(--muted); }
+  .log .stop { color: var(--warn); }
+  .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .facts { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .facts li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--surface-2); }
+  .facts b { font-family: var(--mono); font-weight: 500; font-size: 12px; }
+  table.units { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--mono); }
+  table.units td { padding: 3px 0; }
+  table.units td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Stämme Manager Testlauf</h1>
+      <p class="sub">Dieselbe Entscheidungslogik wie in der Mac App, nur gegen ein nachgebildetes Dorf statt gegen die echte Welt. Die Werte für Rohstoffe, Bauzeiten und Einwohner folgen Welt 97 mit Geschwindigkeit 1.6.</p>
+    </div>
+  </header>
+
+  <div class="bar">
+    <button id="run" class="primary">Automatik starten</button>
+    <button id="reset">Zurücksetzen</button>
+    <span id="badge" class="pill">angehalten</span>
+    <span class="clock">Spielzeit <b id="clock">0 h 00</b></span>
+    <span class="clock">Aktionen <b id="acts">0</b></span>
+    <label style="text-transform:none;letter-spacing:0;display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--ink);font-size:13px">
+      Tempo
+      <select id="speed" style="width:auto">
+        <option value="120">schnell</option>
+        <option value="40" selected>sehr schnell</option>
+        <option value="400">langsam</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="grid">
+    <div>
+      <section class="card">
+        <h2>Dörfer</h2>
+        <div id="villages"></div>
+      </section>
+
+      <section class="card">
+        <h2>Protokoll</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+
+    <div>
+      <section class="card">
+        <h2>Einstellungen</h2>
+        <div class="settings">
+          <label>Vorrang
+            <select id="priority">
+              <option value="build">Bauplan zuerst</option>
+              <option value="troops">Truppen zuerst</option>
+              <option value="alternate">abwechselnd</option>
+            </select>
+          </label>
+          <label>Bauschleife füllen bis
+            <input id="keepQueue" type="number" min="1" max="4" value="2">
+          </label>
+          <label>Kleinste Bestellmenge
+            <input id="minBatch" type="number" min="1" value="10">
+          </label>
+          <label>Bauernhof Puffer
+            <input id="farmBuffer" type="number" min="0" value="0">
+          </label>
+          <label>Puffer Holz
+            <input id="bufWood" type="number" min="0" value="0">
+          </label>
+          <label>Puffer Lehm
+            <input id="bufStone" type="number" min="0" value="0">
+          </label>
+          <label>Puffer Eisen
+            <input id="bufIron" type="number" min="0" value="0">
+          </label>
+          <label>Wartezeit je Dorf
+            <input id="cooldown" type="number" min="1" value="10">
+          </label>
+        </div>
+        <p class="note">Die Wartezeit zählt in Spielminuten. In der App sind es echte Minuten, voreingestellt sind zwölf.</p>
+      </section>
+
+      <section class="card">
+        <h2>Welt 97 Schweiz</h2>
+        <ul class="facts">
+          <li>Geschwindigkeit <b>1.6</b></li>
+          <li>Einheiten <b>0.625</b></li>
+          <li>Bogenschützen <b>nein</b></li>
+          <li>Raubzüge <b>aktiv</b></li>
+          <li>Nachtbonus <b>23 bis 8 Uhr</b></li>
+          <li>Münze <b>28000 / 30000 / 25000</b></li>
+        </ul>
+        <p class="note">Abgefragt über die öffentliche Schnittstelle der Welt.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Kosten und Namen, wie sie das Spiel verwendet.
+  var BASE_COST = { main:[90,80,70], wood:[50,60,40], stone:[65,50,40], iron:[75,65,70],
+    farm:[45,40,30], storage:[60,50,40], barracks:[200,170,90], smith:[220,180,240],
+    market:[100,100,100], stable:[270,240,260], garage:[300,240,260], wall:[50,100,20],
+    place:[10,40,30], statue:[220,220,220], hide:[50,60,50], snob:[15000,25000,10000] };
+
+  var UNIT_COST = { spear:[50,30,10], sword:[30,30,70], axe:[60,30,40], spy:[50,50,20],
+    light:[125,100,250], heavy:[200,150,600], ram:[300,200,200], catapult:[320,400,100] };
+
+  var UNIT_META = { spear:{n:'Speerträger',b:'barracks',p:50,pop:1}, sword:{n:'Schwertkämpfer',b:'barracks',p:50,pop:1},
+    axe:{n:'Axtkämpfer',b:'barracks',p:50,pop:1}, spy:{n:'Späher',b:'stable',p:20,pop:2},
+    light:{n:'Leichte Kavallerie',b:'stable',p:20,pop:4}, heavy:{n:'Schwere Kavallerie',b:'stable',p:20,pop:6},
+    ram:{n:'Ramme',b:'garage',p:10,pop:5}, catapult:{n:'Katapult',b:'garage',p:10,pop:8} };
+
+  var B_NAME = { main:'Hauptgebäude', wood:'Holzfäller', stone:'Lehmgrube', iron:'Eisenmine',
+    farm:'Bauernhof', storage:'Speicher', barracks:'Kaserne', smith:'Schmiede', market:'Marktplatz',
+    stable:'Stall', garage:'Werkstatt', wall:'Wall', place:'Versammlungsplatz', statue:'Statue',
+    hide:'Versteck', snob:'Adelshof' };
+
+  var BUILD_TEMPLATES = {
+    'Rohstoffe': [['main',3],['wood',3],['stone',3],['iron',3],['farm',3],['storage',3],
+      ['wood',6],['stone',6],['iron',6],['main',5],['farm',5],['storage',6],
+      ['wood',10],['stone',10],['iron',10],['farm',8],['storage',10],['market',5],['main',10],
+      ['wood',15],['stone',15],['iron',15],['farm',12],['storage',15]],
+    'Offensiv': [['main',3],['wood',3],['stone',3],['iron',3],['farm',3],['storage',3],['barracks',1],
+      ['wood',6],['stone',6],['iron',6],['main',5],['farm',5],['storage',6],['barracks',3],
+      ['wood',10],['stone',10],['iron',10],['farm',8],['storage',10],['smith',3],['market',3],
+      ['main',10],['barracks',6],['wood',15],['stone',15],['iron',15],['farm',12],['storage',15],['stable',3]],
+    'Defensiv': [['main',3],['wood',3],['stone',3],['iron',3],['farm',3],['storage',3],['barracks',1],
+      ['wood',6],['stone',6],['iron',6],['main',5],['farm',5],['storage',6],['barracks',3],
+      ['wood',10],['stone',10],['iron',10],['farm',8],['storage',10],['wall',5],['smith',3],
+      ['main',10],['barracks',6],['wall',10],['wood',15],['stone',15],['iron',15],['storage',15]]
+  };
+
+  var TROOP_TEMPLATES = {
+    'Früh Farmen': { spear: 400, light: 200, spy: 20 },
+    'Defensiv voll': { spear: 3000, sword: 3000, heavy: 500 },
+    'Offensiv voll': { axe: 3000, light: 1500, ram: 150 }
+  };
+
+  // ---------------------------------------------------------------------
+  // Genau die Entscheidungslogik der App, Zeile für Zeile übernommen.
+  // ---------------------------------------------------------------------
+  function nextOrder(template, levels) {
+    for (var i = 0; i < template.length; i++) {
+      var key = template[i][0], target = template[i][1];
+      if ((levels[key] || 0) < target) return { key: key, level: (levels[key] || 0) + 1 };
+    }
+    return null;
+  }
+
+  function effectiveLevels(levels, queue) {
+    var out = {};
+    Object.keys(levels).forEach(function (k) { out[k] = levels[k]; });
+    queue.forEach(function (order) { out[order.key] = (out[order.key] || 0) + 1; });
+    return out;
+  }
+
+  function chooseOrder(template, units, freePop, minBatch) {
+    var candidates = [];
+    Object.keys(template).forEach(function (unit) {
+      var target = template[unit];
+      var info = units[unit];
+      if (!target || !info || info.disabled) return;
+      var present = info.present || 0;
+      var missing = target - present;
+      if (missing <= 0) return;
+      var meta = UNIT_META[unit];
+      var desired = Math.min(missing, meta.p, Math.floor(freePop / meta.pop));
+      if (desired <= 0) return;
+      var amount = Math.min(desired, info.max);
+      if (amount <= 0) return;
+      if (amount < desired && amount < minBatch) return;
+      candidates.push({ unit: unit, amount: amount, progress: present / target });
+    });
+    if (!candidates.length) return null;
+    candidates.sort(function (a, b) { return a.progress - b.progress; });
+    return candidates[0];
+  }
+
+  // ---------------------------------------------------------------------
+  // Nachbildung eines Dorfes
+  // ---------------------------------------------------------------------
+  function Village(name, coords, build, troop) {
+    this.name = name; this.coords = coords;
+    this.buildTemplate = build; this.troopTemplate = troop;
+    this.buildActive = true; this.troopActive = true;
+    this.reset();
+  }
+
+  Village.prototype.reset = function () {
+    this.levels = { main:3, wood:2, stone:2, iron:2, farm:2, storage:2, place:1, hide:0,
+      barracks:0, smith:0, market:0, stable:0, garage:0, wall:0, statue:0, snob:0 };
+    this.queue = []; this.trainQueue = []; this.units = {};
+    this.res = { wood: 900, stone: 900, iron: 900 };
+    this.lastRun = -999;
+    this.lastPriority = 'build';
+  };
+
+  Village.prototype.storage = function () { return Math.round(1000 * Math.pow(1.2294934, this.levels.storage)); };
+  Village.prototype.popMax = function () { return Math.round(240 * Math.pow(1.172103, this.levels.farm - 1)); };
+  Village.prototype.pop = function () {
+    var used = 0, self = this;
+    Object.keys(this.levels).forEach(function (k) { used += self.levels[k] * 2; });
+    Object.keys(this.units).forEach(function (u) { used += self.units[u] * UNIT_META[u].pop; });
+    return used;
+  };
+  Village.prototype.cost = function (key, level) {
+    var base = BASE_COST[key] || [100,100,100];
+    var f = Math.pow(1.26, level - 1);
+    return { wood: Math.round(base[0]*f), stone: Math.round(base[1]*f), iron: Math.round(base[2]*f) };
+  };
+  Village.prototype.canPay = function (c) {
+    return this.res.wood >= c.wood && this.res.stone >= c.stone && this.res.iron >= c.iron;
+  };
+  Village.prototype.tick = function () {
+    var cap = this.storage();
+    var rate = function (lvl) { return 30 * Math.pow(1.163118, lvl) / 60; };
+    this.res.wood = Math.min(cap, this.res.wood + rate(this.levels.wood));
+    this.res.stone = Math.min(cap, this.res.stone + rate(this.levels.stone));
+    this.res.iron = Math.min(cap, this.res.iron + rate(this.levels.iron));
+    var self = this;
+    this.queue = this.queue.filter(function (o) {
+      o.remaining -= 1;
+      if (o.remaining > 0) return true;
+      self.levels[o.key] = o.level;
+      return false;
+    });
+    this.trainQueue = this.trainQueue.filter(function (o) {
+      o.remaining -= 1;
+      if (o.remaining > 0) return true;
+      self.units[o.unit] = (self.units[o.unit] || 0) + o.amount;
+      return false;
+    });
+  };
+  Village.prototype.unitState = function () {
+    var out = {}, self = this;
+    Object.keys(UNIT_COST).forEach(function (unit) {
+      var c = UNIT_COST[unit];
+      out[unit] = {
+        present: self.units[unit] || 0,
+        max: Math.min(Math.floor(self.res.wood/c[0]), Math.floor(self.res.stone/c[1]), Math.floor(self.res.iron/c[2])),
+        disabled: (self.levels[UNIT_META[unit].b] || 0) === 0
+      };
+    });
+    return out;
+  };
+
+  // ---------------------------------------------------------------------
+  // Planer
+  // ---------------------------------------------------------------------
+  var villages = [
+    new Village('Bärenhorst', '498|502', 'Offensiv', 'Früh Farmen'),
+    new Village('Rütliwacht', '501|499', 'Rohstoffe', 'Defensiv voll')
+  ];
+  var minute = 0, running = false, timer = null, actions = 0;
+
+  function settings() {
+    return {
+      priority: document.getElementById('priority').value,
+      keepQueue: Number(document.getElementById('keepQueue').value),
+      minBatch: Number(document.getElementById('minBatch').value),
+      farmBuffer: Number(document.getElementById('farmBuffer').value),
+      buffer: {
+        wood: Number(document.getElementById('bufWood').value),
+        stone: Number(document.getElementById('bufStone').value),
+        iron: Number(document.getElementById('bufIron').value)
+      },
+      cooldown: Number(document.getElementById('cooldown').value)
+    };
+  }
+
+  function runBuild(v, s) {
+    var template = BUILD_TEMPLATES[v.buildTemplate];
+    if (v.queue.length >= s.keepQueue) return { hold: 'Bauschleife gefüllt' };
+    var next = nextOrder(template, effectiveLevels(v.levels, v.queue));
+    if (!next) return { hold: 'Bauvorlage abgearbeitet' };
+    var cost = v.cost(next.key, next.level);
+    if (!v.canPay(cost)) return { hold: B_NAME[next.key] + ' Stufe ' + next.level + ': Rohstoffe fehlen' };
+    v.res.wood -= cost.wood; v.res.stone -= cost.stone; v.res.iron -= cost.iron;
+    v.queue.push({ key: next.key, level: next.level, remaining: Math.max(2, Math.round(next.level * 3.5)) });
+    return { act: B_NAME[next.key] + ' auf Stufe ' + next.level + ' in Auftrag gegeben' };
+  }
+
+  function runTrain(v, s) {
+    var template = TROOP_TEMPLATES[v.troopTemplate];
+    var state = v.unitState();
+    var short = ['wood','stone','iron'].filter(function (k) { return v.res[k] < s.buffer[k]; })[0];
+    if (short) return { hold: 'Rohstoffpuffer noch nicht erreicht' };
+    var freePop = v.popMax() - v.pop() - s.farmBuffer;
+    if (freePop <= 0) return { hold: 'Keine freien Bauernhofplätze' };
+    var order = chooseOrder(template, state, freePop, s.minBatch);
+    if (!order) {
+      var missing = Object.keys(template).some(function (u) {
+        return state[u] && !state[u].disabled && template[u] - state[u].present > 0;
+      });
+      return missing ? { hold: 'Es wird für Truppen gespart', waiting: true } : { hold: 'Zielbestand erreicht' };
+    }
+    var c = UNIT_COST[order.unit];
+    v.res.wood -= c[0]*order.amount; v.res.stone -= c[1]*order.amount; v.res.iron -= c[2]*order.amount;
+    v.trainQueue.push({ unit: order.unit, amount: order.amount, remaining: Math.max(2, Math.round(order.amount * 0.8)) });
+    return { act: order.amount + ' ' + UNIT_META[order.unit].n + ' in Auftrag gegeben' };
+  }
+
+  function jobOrder(v, s) {
+    if (s.priority === 'troops') return ['troops','build'];
+    if (s.priority === 'alternate') {
+      v.lastPriority = v.lastPriority === 'troops' ? 'build' : 'troops';
+      return v.lastPriority === 'troops' ? ['troops','build'] : ['build','troops'];
+    }
+    return ['build','troops'];
+  }
+
+  function tick() {
+    minute += 1;
+    var s = settings();
+    villages.forEach(function (v) { v.tick(); });
+
+    var due = villages.filter(function (v) {
+      return (v.buildActive || v.troopActive) && minute - v.lastRun >= s.cooldown;
+    }).sort(function (a, b) { return a.lastRun - b.lastRun; })[0];
+
+    if (due) {
+      due.lastRun = minute;
+      var saving = false;
+      jobOrder(due, s).forEach(function (job) {
+        if (job === 'build') {
+          if (saving || !due.buildActive) return;
+          report(due, 'Bauplan', runBuild(due, s));
+        } else {
+          if (!due.troopActive) return;
+          var result = runTrain(due, s);
+          report(due, 'Truppen', result);
+          if (result.waiting && s.priority === 'troops') saving = true;
+        }
+      });
+    }
+    render();
+  }
+
+  var lastHold = {};
+  function report(v, label, result) {
+    var key = v.name + label;
+    if (result.act) {
+      actions += 1;
+      lastHold[key] = null;
+      log('act', v.name + ' ' + label + ': ' + result.act);
+    } else if (lastHold[key] !== result.hold) {
+      lastHold[key] = result.hold;
+      log('hold', v.name + ' ' + label + ': ' + result.hold);
+    }
+  }
+
+  function log(kind, text) {
+    var box = document.getElementById('log');
+    var line = document.createElement('p');
+    var time = document.createElement('time');
+    time.textContent = Math.floor(minute/60) + ' h ' + String(minute % 60).padStart(2, '0');
+    var span = document.createElement('span');
+    span.className = kind;
+    span.textContent = text;
+    line.appendChild(time); line.appendChild(span);
+    box.insertBefore(line, box.firstChild);
+    while (box.children.length > 120) box.removeChild(box.lastChild);
+  }
+
+  // ---------------------------------------------------------------------
+  // Darstellung
+  // ---------------------------------------------------------------------
+  function render() {
+    document.getElementById('clock').textContent = Math.floor(minute/60) + ' h ' + String(minute % 60).padStart(2, '0');
+    document.getElementById('acts').textContent = String(actions);
+    var box = document.getElementById('villages');
+    villages.forEach(function (v, index) {
+      var node = box.children[index];
+      if (!node) { node = buildVillageNode(v, index); box.appendChild(node); }
+      updateVillageNode(node, v);
+    });
+  }
+
+  function buildVillageNode(v, index) {
+    var el = document.createElement('div');
+    el.className = 'village';
+    el.innerHTML =
+      '<div class="vhead"><span class="vname"></span><span class="coords"></span></div>' +
+      '<div class="res">' +
+        '<div><span>Holz</span><b data-wood></b><div class="meter"><i data-mwood></i></div></div>' +
+        '<div><span>Lehm</span><b data-stone></b><div class="meter"><i data-mstone></i></div></div>' +
+        '<div><span>Eisen</span><b data-iron></b><div class="meter"><i data-miron></i></div></div>' +
+      '</div>' +
+      '<div class="assign">' +
+        '<label>Bauvorlage<select data-build></select></label>' +
+        '<label>Truppenvorlage<select data-troop></select></label>' +
+      '</div>' +
+      '<div class="toggles">' +
+        '<label><input type="checkbox" data-bactive checked> Bauen</label>' +
+        '<label><input type="checkbox" data-tactive checked> Rekrutieren</label>' +
+      '</div>' +
+      '<div class="state" data-state></div>' +
+      '<table class="units" data-units></table>';
+    el.querySelector('.vname').textContent = v.name;
+    el.querySelector('.coords').textContent = v.coords;
+    var b = el.querySelector('[data-build]');
+    Object.keys(BUILD_TEMPLATES).forEach(function (name) { b.appendChild(new Option(name, name)); });
+    b.value = v.buildTemplate;
+    b.addEventListener('change', function () { v.buildTemplate = b.value; log('hold', v.name + ' Bauplan: Vorlage ' + b.value + ' zugewiesen'); });
+    var t = el.querySelector('[data-troop]');
+    Object.keys(TROOP_TEMPLATES).forEach(function (name) { t.appendChild(new Option(name, name)); });
+    t.value = v.troopTemplate;
+    t.addEventListener('change', function () { v.troopTemplate = t.value; log('hold', v.name + ' Truppen: Vorlage ' + t.value + ' zugewiesen'); });
+    el.querySelector('[data-bactive]').addEventListener('change', function (e) { v.buildActive = e.target.checked; });
+    el.querySelector('[data-tactive]').addEventListener('change', function (e) { v.troopActive = e.target.checked; });
+    return el;
+  }
+
+  function updateVillageNode(el, v) {
+    var cap = v.storage();
+    [['wood','wood'],['stone','stone'],['iron','iron']].forEach(function (pair) {
+      el.querySelector('[data-' + pair[0] + ']').textContent = Math.floor(v.res[pair[1]]) + ' / ' + cap;
+      el.querySelector('[data-m' + pair[0] + ']').style.width = Math.min(100, v.res[pair[1]] / cap * 100) + '%';
+    });
+    var queue = v.queue.map(function (o) { return B_NAME[o.key] + ' ' + o.level + ' (' + o.remaining + ' min)'; });
+    var train = v.trainQueue.map(function (o) { return o.amount + ' ' + UNIT_META[o.unit].n; });
+    el.querySelector('[data-state]').innerHTML =
+      'Bauernhof <b>' + v.pop() + ' / ' + v.popMax() + '</b><br>' +
+      'Bauschleife <b>' + (queue.join(', ') || 'leer') + '</b><br>' +
+      'Rekrutierung <b>' + (train.join(', ') || 'leer') + '</b>';
+    var rows = Object.keys(v.units).filter(function (u) { return v.units[u] > 0; }).map(function (u) {
+      return '<tr><td>' + UNIT_META[u].n + '</td><td>' + v.units[u] + '</td></tr>';
+    });
+    var levels = Object.keys(v.levels).filter(function (k) { return v.levels[k] > 0; }).map(function (k) {
+      return '<tr><td>' + B_NAME[k] + '</td><td>' + v.levels[k] + '</td></tr>';
+    });
+    el.querySelector('[data-units]').innerHTML = levels.concat(rows).join('');
+  }
+
+  function setRunning(on) {
+    running = on;
+    var badge = document.getElementById('badge');
+    badge.textContent = on ? 'läuft' : 'angehalten';
+    badge.className = 'pill' + (on ? ' on' : '');
+    document.getElementById('run').textContent = on ? 'Anhalten' : 'Automatik starten';
+    if (timer) { clearInterval(timer); timer = null; }
+    if (on) timer = setInterval(tick, Number(document.getElementById('speed').value));
+  }
+
+  document.getElementById('run').addEventListener('click', function () { setRunning(!running); });
+  document.getElementById('speed').addEventListener('change', function () { if (running) setRunning(true); });
+  document.getElementById('reset').addEventListener('click', function () {
+    setRunning(false);
+    minute = 0; actions = 0; lastHold = {};
+    villages.forEach(function (v) { v.reset(); });
+    document.getElementById('log').innerHTML = '';
+    document.getElementById('villages').innerHTML = '';
+    log('hold', 'Testlauf zurückgesetzt');
+    render();
+  });
+
+  log('hold', 'Bereit. Zwei Dörfer stehen auf Stufe drei, wie nach dem Einstieg in eine neue Welt.');
+  render();
+})();
+</script>

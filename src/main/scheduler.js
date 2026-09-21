@@ -139,15 +139,29 @@ class Scheduler {
     village.lastRun = Date.now();
     this.store.save();
 
-    if (village.buildActive) {
-      const result = await runBuildJob({ bridge: this.bridge, store: this.store, logger: this.logger, village });
-      this.report(village, 'Bauplan', result);
-      if (result && result.acted) this.actionTimes.push(Date.now());
-    }
-    if (village.troopActive && this.running) {
-      const result = await runTrainJob({ bridge: this.bridge, store: this.store, logger: this.logger, village });
-      this.report(village, 'Truppen', result);
-      if (result && result.acted) this.actionTimes.push(Date.now());
+    // Bauplan und Rekrutierung greifen auf denselben Topf zu. Wer zuerst an
+    // der Reihe ist, bekommt die Rohstoffe, deshalb ist der Vorrang einstellbar.
+    let savingForTroops = false;
+    for (const job of this.jobOrder(config, village)) {
+      if (!this.running) break;
+      if (job === 'build' && savingForTroops) {
+        this.logger.info(`${village.name || village.id} Bauplan: wartet, es wird fuer Truppen gespart`);
+        continue;
+      }
+      if (job === 'build' && village.buildActive) {
+        const result = await runBuildJob({ bridge: this.bridge, store: this.store, logger: this.logger, village });
+        this.report(village, 'Bauplan', result);
+        if (result && result.acted) this.actionTimes.push(Date.now());
+      }
+      if (job === 'troops' && village.troopActive) {
+        const result = await runTrainJob({ bridge: this.bridge, store: this.store, logger: this.logger, village });
+        this.report(village, 'Truppen', result);
+        if (result && result.acted) this.actionTimes.push(Date.now());
+        // Bei Vorrang Truppen bleibt der Bauplan stehen, solange gespart wird.
+        if (result && result.waiting && (config.automation.priority || 'build') === 'troops') {
+          savingForTroops = true;
+        }
+      }
     }
     this.emit();
   }
@@ -161,6 +175,17 @@ class Scheduler {
     } else {
       this.logger.warn(`${name} ${label}: ${result.reason || 'unbekannter Fehler'}`);
     }
+  }
+
+  // Legt fest, wer im Dorf zuerst an die Rohstoffe darf.
+  jobOrder(config, village) {
+    const mode = config.automation.priority || 'build';
+    if (mode === 'troops') return ['troops', 'build'];
+    if (mode === 'alternate') {
+      village.lastPriority = village.lastPriority === 'troops' ? 'build' : 'troops';
+      return village.lastPriority === 'troops' ? ['troops', 'build'] : ['build', 'troops'];
+    }
+    return ['build', 'troops'];
   }
 
   // Waehlt das Dorf, dessen letzter Durchlauf am laengsten zurueckliegt.

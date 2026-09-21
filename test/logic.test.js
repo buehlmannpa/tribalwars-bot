@@ -48,13 +48,26 @@ test('chooseOrder achtet auf freie Bauernhofplaetze', () => {
   assert.strictEqual(order.amount, 12);
 });
 
-test('chooseOrder achtet auf die vom Spiel gemeldete Hoechstzahl', () => {
+test('chooseOrder wartet, bis ein ganzes Paket bezahlbar ist', () => {
+  // Das Spiel meldet, dass nur sieben Axtkaempfer bezahlbar waeren. Ein Paket
+  // umfasst fuenfzig, also wird nichts bestellt und die Rohstoffe bleiben
+  // dem Bauplan erhalten.
   const order = chooseOrder({
     template: { axe: 1000 },
     state: { units: { axe: { present: 0, max: 7 } } },
+    freePop: 500,
+    minBatch: 10
+  });
+  assert.strictEqual(order, null);
+});
+
+test('chooseOrder bestellt den Rest, wenn er kleiner als ein Paket ist', () => {
+  const order = chooseOrder({
+    template: { axe: 12 },
+    state: { units: { axe: { present: 0, max: 40 } } },
     freePop: 500
   });
-  assert.strictEqual(order.amount, 7);
+  assert.strictEqual(order.amount, 12);
 });
 
 test('chooseOrder liefert nichts, wenn der Zielbestand erreicht ist', () => {
@@ -74,4 +87,24 @@ test('chooseOrder rechnet den Bauernhofbedarf je Einheit mit', () => {
   });
   // Schwere Kavallerie braucht sechs Plaetze, also passen nur fuenf Einheiten.
   assert.strictEqual(order.amount, 5);
+});
+
+test('chooseOrder bestellt eine Teilmenge ab der kleinsten sinnvollen Menge', () => {
+  const order = chooseOrder({
+    template: { axe: 1000 },
+    state: { units: { axe: { present: 0, max: 25 } } },
+    freePop: 500,
+    minBatch: 10
+  });
+  assert.strictEqual(order.amount, 25);
+});
+
+test('chooseOrder wartet, wenn die Teilmenge zu klein waere', () => {
+  const order = chooseOrder({
+    template: { axe: 1000 },
+    state: { units: { axe: { present: 0, max: 4 } } },
+    freePop: 500,
+    minBatch: 10
+  });
+  assert.strictEqual(order, null);
 });
