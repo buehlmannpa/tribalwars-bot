@@ -8,21 +8,44 @@ const { sleep } = require('./bridge');
 
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 
+const JOB_LABEL = { build: 'Bauplan', troops: 'Truppen', farm: 'Farmen' };
+
+const emptySummary = () => ({
+  villages: 0, built: 0, trained: 0, farmed: 0,
+  observed: 0, waiting: 0, saving: 0, done: 0, idle: 0, problems: 0
+});
+
+// Fasst einen Durchlauf in einer einzigen, lesbaren Zeile zusammen.
+function summaryText(s) {
+  const parts = [];
+  if (s.built) parts.push(s.built === 1 ? '1 Ausbau' : `${s.built} Ausbauten`);
+  if (s.trained) parts.push(s.trained === 1 ? '1 Rekrutierung' : `${s.trained} Rekrutierungen`);
+  if (s.farmed) parts.push(s.farmed === 1 ? '1 Farmangriff' : `${s.farmed} Farmangriffe`);
+  if (s.observed) parts.push(`${s.observed} nur beobachtet`);
+  if (s.waiting) parts.push(`${s.waiting} warten auf Rohstoffe`);
+  if (s.saving) parts.push(`${s.saving} wegen Vorrang zurueckgestellt`);
+  if (s.done) parts.push(`${s.done} Ziel erreicht`);
+  if (s.problems) parts.push(s.problems === 1 ? '1 Problem' : `${s.problems} Probleme`);
+  const doerfer = s.villages === 1 ? '1 Dorf' : `${s.villages} Doerfer`;
+  return `Durchlauf: ${doerfer} geprueft${parts.length ? `, ${parts.join(', ')}` : ', nichts zu tun'}`;
+}
+
 // Der Planer ist das Herz der App. Er arbeitet die Doerfer der Reihe nach ab,
 // haelt zufaellige Abstaende ein und stoppt sofort, wenn das Spiel einen
 // Botschutz zeigt oder die Sitzung abgelaufen ist.
 class Scheduler {
-  constructor({ bridge, store, logger, world, onStatus }) {
+  constructor({ bridge, store, logger, world, onStatus, jobs }) {
     this.bridge = bridge;
     this.store = store;
     this.logger = logger;
     this.world = world;
     this.onStatus = onStatus || (() => {});
+    // Die Auftraege sind austauschbar, damit sie sich einzeln pruefen lassen.
+    this.jobs = Object.assign({ build: runBuildJob, troops: runTrainJob, farm: runFarmJob }, jobs || {});
     this.running = false;
     this.pauseReason = null;
     this.actionTimes = [];
     this.lastProbe = null;
-    this.lastReport = {};
     this.lastIncoming = 0;
     this.nextTickAt = null;
     this.powerBlockerId = null;
@@ -145,57 +168,96 @@ class Scheduler {
       return;
     }
 
-    const village = this.pickVillage(config);
-    if (!village) return;
+    // Ein Durchlauf geht durch alle faelligen Doerfer, nicht nur durch das
+    // naechste. Zwischen den Doerfern liegt eine kurze, zufaellige Pause.
+    const villages = this.dueVillages(config);
+    if (!villages.length) return;
 
-    village.lastRun = Date.now();
-    this.store.save();
-
-    // Bauplan und Rekrutierung greifen auf denselben Topf zu. Wer zuerst an
-    // der Reihe ist, bekommt die Rohstoffe, deshalb ist der Vorrang einstellbar.
-    let savingForTroops = false;
-    for (const job of this.jobOrder(config, village)) {
+    const summary = emptySummary();
+    for (const village of villages) {
       if (!this.running) break;
-      if (job === 'build' && savingForTroops) {
-        this.logger.info(`${village.name || village.id} Bauplan: wartet, es wird fuer Truppen gespart`);
-        continue;
+      if (this.actionsLastHour() >= config.automation.maxActionsPerHour) {
+        this.logger.info('Stundenlimit erreicht, die restlichen Doerfer kommen im naechsten Durchlauf');
+        break;
       }
-      if (job === 'build' && village.buildActive) {
-        const result = await runBuildJob({ bridge: this.bridge, store: this.store, logger: this.logger, village });
-        this.report(village, 'Bauplan', result);
-        if (result && result.acted) this.actionTimes.push(Date.now());
-      }
-      if (job === 'troops' && village.troopActive) {
-        const result = await runTrainJob({ bridge: this.bridge, store: this.store, logger: this.logger, village });
-        this.report(village, 'Truppen', result);
-        if (result && result.acted) this.actionTimes.push(Date.now());
-        // Bei Vorrang Truppen bleibt der Bauplan stehen, solange gespart wird.
-        if (result && result.waiting && (config.automation.priority || 'build') === 'troops') {
-          savingForTroops = true;
-        }
+      summary.villages += 1;
+      village.lastRun = Date.now();
+      this.store.save();
+      await this.runVillage(config, village, summary);
+      this.emit();
+      if (this.running && village !== villages[villages.length - 1]) {
+        await sleep(Math.round(randomBetween(2500, 7000)));
       }
     }
+
+    this.summarize(summary);
     this.emit();
   }
 
-  // Gleich bleibende Meldungen werden nur einmal geschrieben, sonst fuellt
-  // sich das Protokoll bei jedem Durchlauf mit derselben Zeile.
-  report(village, label, result) {
-    if (!result) return;
+  // Ein einzelnes Dorf: Bauplan, Truppen und Farmen in der eingestellten
+  // Reihenfolge.
+  async runVillage(config, village, summary) {
     const name = village.name || village.id;
-    if (result.acted || result.observed) {
-      this.lastReport[`${village.id}:${label}`] = null;
+    let hold = null;
+
+    for (const job of this.jobOrder(config, village)) {
+      if (!this.running) break;
+      if (job === 'build' && !village.buildActive) continue;
+      if (job === 'troops' && !village.troopActive) continue;
+      // Bauplan und Rekrutierung greifen auf denselben Topf zu. Wartet der
+      // bevorzugte Auftrag auf Rohstoffe, bleibt der andere stehen, sonst
+      // wird gleich wieder ausgegeben, was gerade gespart wird.
+      if (hold) {
+        summary.saving += 1;
+        continue;
+      }
+      const result = await this.jobs[job]({
+        bridge: this.bridge, store: this.store, logger: this.logger, village
+      });
+      this.account(summary, job, result, name);
+      if (result && result.waiting && this.isPriorityJob(config, village, job)) hold = job;
+    }
+
+    if (!this.running || !village.farmActive) return;
+    const farm = await this.jobs.farm({
+      bridge: this.bridge, store: this.store, logger: this.logger, village, world: this.world
+    });
+    this.account(summary, 'farm', farm, name);
+  }
+
+  // Zaehlt das Ergebnis eines Auftrags fuer die Zusammenfassung. Nur echte
+  // Probleme bekommen sofort eine eigene Zeile.
+  account(summary, job, result, name) {
+    if (!result) return;
+    if (result.acted) {
+      this.actionTimes.push(Date.now());
+      summary[job === 'build' ? 'built' : job === 'troops' ? 'trained' : 'farmed'] += 1;
       return;
     }
-    const key = `${village.id}:${label}`;
-    const message = result.reason || (result.ok ? 'nichts zu tun' : 'unbekannter Fehler');
-    if (this.lastReport[key] === message) return;
-    this.lastReport[key] = message;
-    if (result.ok) {
-      this.logger.info(`${name} ${label}: ${message}`);
-    } else {
-      this.logger.warn(`${name} ${label}: ${message}`);
+    if (result.observed) {
+      summary.observed += 1;
+      return;
     }
+    if (!result.ok) {
+      summary.problems += 1;
+      this.logger.warn(`${name} ${JOB_LABEL[job]}: ${result.reason || 'unbekannter Fehler'}`);
+      return;
+    }
+    if (result.waiting) {
+      summary.waiting += 1;
+      return;
+    }
+    if (result.done) {
+      summary.done += 1;
+      return;
+    }
+    summary.idle += 1;
+  }
+
+  // Eine Zeile je Durchlauf statt einer Zeile je Dorf und Auftrag.
+  summarize(summary) {
+    if (!summary.villages) return;
+    this.logger.info(summaryText(summary));
   }
 
   // Legt fest, wer im Dorf zuerst an die Rohstoffe darf.
@@ -209,15 +271,22 @@ class Scheduler {
     return ['build', 'troops'];
   }
 
-  // Waehlt das Dorf, dessen letzter Durchlauf am laengsten zurueckliegt.
-  pickVillage(config) {
+  // Ist dieser Auftrag im Dorf gerade der bevorzugte.
+  isPriorityJob(config, village, job) {
+    const mode = config.automation.priority || 'build';
+    if (mode === 'alternate') return job === (village.lastPriority || 'build');
+    if (mode === 'troops') return job === 'troops';
+    return job === 'build';
+  }
+
+  // Alle Doerfer, deren Wartezeit abgelaufen ist, das laengst gepruefte zuerst.
+  dueVillages(config) {
     const cooldown = (Number(config.automation.villageCooldownMinutes) || 12) * 60 * 1000;
     const now = Date.now();
-    const candidates = Object.values(config.villages)
+    return Object.values(config.villages)
       .filter((v) => v.buildActive || v.troopActive || v.farmActive)
       .filter((v) => now - (v.lastRun || 0) >= cooldown)
       .sort((a, b) => (a.lastRun || 0) - (b.lastRun || 0));
-    return candidates[0] || null;
   }
 
   isNightPause(config) {
@@ -239,4 +308,4 @@ class Scheduler {
   }
 }
 
-module.exports = { Scheduler };
+module.exports = { Scheduler, summaryText };

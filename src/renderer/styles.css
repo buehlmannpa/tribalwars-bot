@@ -237,4 +237,9 @@ input[type="text"], textarea { width: 100%; }
 .log .action { color: #3f6127; font-weight: 600; }
 .log .warn { color: #8d5b13; }
 .log .error { color: var(--red); font-weight: 600; }
+.log .repeat {
+  margin-left: auto; flex: 0 0 auto; align-self: center;
+  padding: 1px 8px; border-radius: 999px; font-size: 11px;
+  color: var(--ink-soft); background: rgba(125,81,15,.10);
+}
 .empty { text-align: center; color: var(--ink-soft); padding: 28px 12px; font-size: 13px; }

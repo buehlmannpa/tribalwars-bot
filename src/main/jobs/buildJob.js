@@ -38,9 +38,14 @@ async function runBuildJob({ bridge, store, logger, village }) {
   const label = BUILDING_BY_KEY[next.key] ? BUILDING_BY_KEY[next.key].name : next.key;
   if (!state.buildable[next.key]) {
     const hint = (state.blocked || {})[next.key];
+    // Fehlen nur Rohstoffe, wird gespart. Das meldet der Auftrag zurueck,
+    // damit der Planer bei Vorrang Gebaeude die Truppen zurueckstellt.
+    const missing = missingResources(state, next.key);
     return {
       ok: true,
       skipped: true,
+      waiting: missing.length > 0,
+      missing,
       reason: hint
         ? `${label} Stufe ${next.level} wartet: ${hint}`
         : `${label} Stufe ${next.level} noch nicht moeglich, es fehlen Rohstoffe oder Voraussetzungen`
@@ -57,6 +62,17 @@ async function runBuildJob({ bridge, store, logger, village }) {
     return { ok: true, acted: true, building: next.key, level: result.target };
   }
   return { ok: false, reason: result ? result.error : 'Ausbau fehlgeschlagen' };
+}
+
+// Welche Rohstoffe fuer den naechsten Ausbau noch fehlen.
+function missingResources(state, key) {
+  const costs = (state.costs || {})[key];
+  const stock = state.resources || {};
+  if (!costs) return [];
+  return ['wood', 'stone', 'iron'].filter((art) => {
+    const preis = Number(costs[art]);
+    return Number.isFinite(preis) && preis > Number(stock[art] || 0);
+  });
 }
 
 // Stufen inklusive der Auftraege, die schon in der Bauschleife stehen.
@@ -99,4 +115,4 @@ function nextOrder(template, levels) {
   return null;
 }
 
-module.exports = { runBuildJob, effectiveLevels, nextOrder, matchBuilding };
+module.exports = { runBuildJob, effectiveLevels, nextOrder, matchBuilding, missingResources };

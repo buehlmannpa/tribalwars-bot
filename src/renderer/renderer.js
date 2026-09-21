@@ -541,7 +541,11 @@ async function saveSettings() {
 
 // ---------------------------------------------------------------- Protokoll
 
+// Gebuendelte Meldungen kommen mit derselben Kennung zurueck. Dann wird die
+// vorhandene Zeile ersetzt und nach unten geholt, statt eine neue zu schreiben.
 function appendLog(entry) {
+  const vorhanden = state.logs.findIndex((alt) => alt.id !== undefined && alt.id === entry.id);
+  if (vorhanden >= 0) state.logs.splice(vorhanden, 1);
   state.logs.push(entry);
   if (state.logs.length > 400) state.logs.shift();
   renderLog();
@@ -564,6 +568,13 @@ function renderLog() {
     const line = el('p');
     line.appendChild(el('time', null, new Date(entry.ts).toLocaleTimeString('de-CH')));
     line.appendChild(el('span', entry.level, entry.message));
+    // Wiederholungen stehen als Zaehler am Ende der Zeile.
+    if (Number(entry.count) > 1) {
+      const seit = new Date(entry.firstTs || entry.ts).toLocaleTimeString('de-CH');
+      const zaehler = el('span', 'repeat', `${entry.count} mal`);
+      zaehler.title = `seit ${seit}`;
+      line.appendChild(zaehler);
+    }
     box.appendChild(line);
   }
   box.scrollTop = box.scrollHeight;

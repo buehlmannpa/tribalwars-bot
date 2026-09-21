@@ -32,19 +32,27 @@ Accounts. Der Entscheid liegt bei dir.
 6. Truppenvorlagen abarbeiten, in Paketen, mit Rohstoffpuffer und Bauernhof
    Puffer, Vorrang gegenueber dem Bauplan einstellbar. Massgebend ist der
    Gesamtbestand des Dorfes, Truppen auf Angriff oder in der Unterstuetzung
-   zaehlen also mit und werden nicht nachbestellt.
-7. Modus nur beobachten, in dem die App alles liest und protokolliert, aber
+   zaehlen also mit und werden nicht nachbestellt. Innerhalb der Truppen gilt
+   eine feste Reihenfolge: zweimal Kaserne, dann einmal Stall. Die Werkstatt
+   kommt erst dazu, wenn von den Truppen aus Kaserne und Stall mindestens die
+   Haelfte der Vorlage im Dorf steht.
+7. Ein Durchlauf geht durch alle faelligen Doerfer, nicht nur durch das
+   naechste. Zwischen den Doerfern liegt eine kurze, zufaellige Pause, das
+   Stundenlimit wird dabei laufend geprueft.
+8. Modus nur beobachten, in dem die App alles liest und protokolliert, aber
    nichts im Spiel anruehrt.
-8. Jede Aktion wird nachgewiesen. Nach einem Ausbau oder einer Rekrutierung
+9. Jede Aktion wird nachgewiesen. Nach einem Ausbau oder einer Rekrutierung
    prueft die App, ob das Spiel den Auftrag wirklich uebernommen hat, und
    meldet Erfolg erst dann. Bleibt der Nachweis aus, erscheint eine Warnung
    und einmal je Sitzung wird ein Seitenabzug zur Fehlersuche abgelegt.
-9. Sicherungen: Erkennung von Botschutz und abgelaufener Sitzung mit sofortigem
-   Halt und Mitteilung, zufaellige Abstaende, Aktionslimite pro Stunde,
-   optionale Nachtpause, Ueberspringen bei eingehenden Angriffen.
-10. Seitenabzug auf die Platte, um Auswahlpfade gegen eine Welt zu pruefen.
-
-11. Farmassistent: greift Barbarendoerfer im eingestellten Umkreis an, immer
+10. Sicherungen: Erkennung von Botschutz und abgelaufener Sitzung mit
+    sofortigem Halt und Mitteilung, zufaellige Abstaende, Aktionslimite pro
+    Stunde, optionale Nachtpause, Ueberspringen bei eingehenden Angriffen.
+11. Seitenabzug auf die Platte, um Auswahlpfade gegen eine Welt zu pruefen.
+12. Protokoll mit Buendelung: gleiche Meldungen werden zu einer Zeile mit
+    Zaehler zusammengefasst, je Durchlauf gibt es eine Zusammenfassung, und
+    die Protokolldateien werden nach fuenf Tagen automatisch geloescht.
+13. Farmassistent: greift Barbarendoerfer im eingestellten Umkreis an, immer
     mit der eingestellten Truppenzahl. Der Umkreis wird in Stunden Laufzeit
     angegeben, die App rechnet daraus die Felder aus der oeffentlichen Karte
     und den Einheitendaten der Welt. Je Ziel gilt eine Wartezeit.
@@ -118,14 +126,14 @@ erscheinen als Balken und Ringe, nicht als nackter Text:
 | Weltuebersicht | Karte je Dorf mit Gebaeuden als Kacheln und Truppen gegen den Zielbestand, sortierbar |
 | Vorlagen | Bau und Truppenplaene anlegen, duplizieren, bearbeiten |
 | Einstellungen | Betriebsart, Takt, Grenzen, Sicherungen, Mitteilungen |
-| Protokoll | gefiltert nach allem, Aktionen oder Warnungen |
+| Protokoll | gefiltert nach allem, Aktionen oder Warnungen, gleiche Meldungen gebuendelt mit Zaehler |
 
 ## Einstellungen, die du kennen solltest
 
 | Einstellung | Bedeutung |
 |---|---|
 | Nur beobachten | Es wird nichts im Spiel geklickt |
-| Vorrang bei Rohstoffen | Bauplan zuerst, Truppen zuerst oder abwechselnd |
+| Vorrang bei Rohstoffen | Bauplan zuerst, Truppen zuerst oder abwechselnd. Wartet der bevorzugte Auftrag auf Rohstoffe, bleibt der andere im selben Durchlauf stehen |
 | Bauschleife fuellen bis | Ohne Premium nimmt das Spiel hoechstens zwei Auftraege |
 | Kleinste Bestellmenge | Unterhalb davon wartet die Rekrutierung auf Rohstoffe |
 | Nur bei leerer Ausbildung | Es wird erst nachgelegt, wenn nichts mehr ausgebildet wird |
@@ -153,7 +161,8 @@ npm test
 | `src/main/main.js` | Start, Fenster, Schnittstelle zur Oberflaeche |
 | `src/main/bridge.js` | Spielfenster, Navigation, Ausfuehrung in der Seite |
 | `src/main/pageScripts.js` | Die Schnipsel, die in der Spielseite laufen |
-| `src/main/scheduler.js` | Takt, Sicherungen, Auswahl des naechsten Dorfes |
+| `src/main/scheduler.js` | Takt, Sicherungen, Durchlauf durch alle faelligen Doerfer |
+| `src/main/logger.js` | Protokoll, Buendelung und Aufbewahrung |
 | `src/main/jobs/buildJob.js` | Dorfmanager, Bauplan |
 | `src/main/jobs/trainJob.js` | Truppenmanager, Rekrutierung |
 | `src/shared/templates.js` | Mitgelieferte Vorlagen |

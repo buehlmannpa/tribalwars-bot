@@ -2,8 +2,14 @@
 
 const { UNIT_BY_KEY, BUILDING_BY_KEY } = require('../../shared/constants');
 
+// Vorrang bei den Truppen: zweimal Kaserne, dann einmal Stall. Die Werkstatt
+// kommt erst dazu, wenn von den Truppen der Kaserne und des Stalls mindestens
+// die Haelfte der Vorlage im Dorf steht.
+const TRAIN_ROTATION = ['barracks', 'barracks', 'stable', 'garage'];
+const GARAGE_THRESHOLD = 0.5;
+
 // Truppenmanager. Kaserne, Stall und Werkstatt haben je eine eigene Seite,
-// darum wird pro Durchlauf ein Gebaeude besucht und reihum gewechselt.
+// darum wird pro Durchlauf ein Gebaeude besucht.
 async function runTrainJob({ bridge, store, logger, village }) {
   const config = store.get();
   const template = config.troopTemplates[village.troopTemplate];
@@ -78,7 +84,8 @@ async function runTrainJob({ bridge, store, logger, village }) {
   return { ok: false, reason: result ? result.error : 'Rekrutierung fehlgeschlagen' };
 }
 
-// Waehlt das naechste Gebaeude reihum und ueberspringt, was im Dorf fehlt.
+// Waehlt das naechste Gebaeude nach Vorrang und ueberspringt, was im Dorf
+// fehlt oder wo nichts mehr gebraucht wird.
 function pickBuilding(template, village) {
   const wanted = [];
   for (const [unit, target] of Object.entries(template)) {
@@ -90,6 +97,13 @@ function pickBuilding(template, village) {
   const levels = village.levels || null;
   let available = levels ? wanted.filter((key) => Number(levels[key] || 0) > 0) : wanted;
   if (!available.length) return null;
+
+  // Vorrang 3 bleibt gesperrt, solange die Truppen von Kaserne und Stall noch
+  // nicht weit genug sind. Gibt es sonst nichts zu tun, bleibt die Werkstatt.
+  if (available.includes('garage') && !garageUnlocked(template, village)) {
+    const rest = available.filter((key) => key !== 'garage');
+    if (rest.length) available = rest;
+  }
 
   // Ist der Bestand bekannt, werden Gebaeude bevorzugt, in denen noch etwas
   // fehlt. Fehlt nirgends etwas, wird trotzdem reihum geschaut, damit die App
@@ -103,8 +117,39 @@ function pickBuilding(template, village) {
     if (needed.length) available = needed;
   }
 
-  const last = available.indexOf(village.lastTrainBuilding);
-  return available[(last + 1) % available.length];
+  // Der Zaehler merkt sich, an welcher Stelle der Reihenfolge das Dorf steht.
+  const start = Number(village.trainRotation) || 0;
+  for (let step = 0; step < TRAIN_ROTATION.length; step += 1) {
+    const index = (start + step) % TRAIN_ROTATION.length;
+    const building = TRAIN_ROTATION[index];
+    if (!available.includes(building)) continue;
+    village.trainRotation = (index + 1) % TRAIN_ROTATION.length;
+    return building;
+  }
+  village.trainRotation = 0;
+  return available[0];
+}
+
+// Die Werkstatt ist erst an der Reihe, wenn von den in der Vorlage
+// festgelegten Truppen der Kaserne und des Stalls mindestens die Haelfte im
+// Dorf steht. Gebaeude, die es im Dorf gar nicht gibt, zaehlen nicht mit.
+function garageUnlocked(template, village) {
+  const stock = village.units || null;
+  const levels = village.levels || null;
+  const vorhanden = (building) => !levels || Number(levels[building] || 0) > 0;
+  let ziel = 0;
+  let haben = 0;
+  for (const [unit, target] of Object.entries(template)) {
+    const meta = UNIT_BY_KEY[unit];
+    if (!meta || Number(target) <= 0) continue;
+    if (meta.building !== 'barracks' && meta.building !== 'stable') continue;
+    if (!vorhanden(meta.building)) continue;
+    ziel += Number(target);
+    haben += Math.min(stock ? Number(stock[unit] || 0) : 0, Number(target));
+  }
+  if (ziel <= 0) return true;
+  if (!stock) return false;
+  return haben / ziel >= GARAGE_THRESHOLD;
 }
 
 // Der Bestand einer Einheit im Dorf, Truppen unterwegs eingerechnet.
@@ -150,4 +195,4 @@ function chooseOrder({ template, state, freePop, minBatch = 1 }) {
   return candidates[0];
 }
 
-module.exports = { runTrainJob, chooseOrder, pickBuilding, stockOf };
+module.exports = { runTrainJob, chooseOrder, pickBuilding, garageUnlocked, stockOf, TRAIN_ROTATION };

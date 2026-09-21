@@ -48,6 +48,7 @@ const STATUS = { running: false, observeOnly: true, pauseReason: null, nextTickA
 async function openDashboard() {
   const html = fs.readFileSync(indexFile, 'utf8');
   const calls = [];
+  const handlers = {};
   const dom = new JSDOM(html, {
     runScripts: 'dangerously',
     resources: 'usable',
@@ -62,14 +63,14 @@ async function openDashboard() {
           }
           return Promise.resolve(structuredClone(CONFIG));
         },
-        on: () => () => {}
+        on: (channel, fn) => { handlers[channel] = fn; return () => {}; }
       };
     }
   });
   await new Promise((resolve) => dom.window.addEventListener('load', resolve));
   // Ein paar Runden, damit die Versprechen der Oberflaeche eingeloest sind.
   for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setImmediate(resolve));
-  return { dom, window: dom.window, document: dom.window.document, calls };
+  return { dom, window: dom.window, document: dom.window.document, calls, handlers };
 }
 
 test('Dashboard baut sich mit echten Daten fehlerfrei auf', async () => {
@@ -136,5 +137,25 @@ test('Die Einstellungen stehen auf den gespeicherten Werten', async () => {
   assert.strictEqual(document.getElementById('minDelay').value, '45');
   assert.strictEqual(document.getElementById('priority').value, 'build');
   assert.strictEqual(document.getElementById('keepQueue').value, '2');
+  dom.window.close();
+});
+
+test('Gebuendelte Meldungen erscheinen als eine Zeile mit Zaehler', async () => {
+  const { dom, document, handlers } = await openDashboard();
+  const eintrag = { id: 7, ts: Date.now(), firstTs: Date.now() - 60000, level: 'info', message: 'Durchlauf: 6 Doerfer geprueft, nichts zu tun', count: 1 };
+  handlers.log(eintrag);
+  handlers.log(Object.assign({}, eintrag, { count: 2 }));
+  handlers.log(Object.assign({}, eintrag, { count: 3 }));
+  const zeilen = document.querySelectorAll('#log p');
+  assert.strictEqual(zeilen.length, 1);
+  assert.match(zeilen[0].textContent, /3 mal/);
+  dom.window.close();
+});
+
+test('Verschiedene Meldungen bleiben eigene Zeilen', async () => {
+  const { dom, document, handlers } = await openDashboard();
+  handlers.log({ id: 1, ts: Date.now(), firstTs: Date.now(), level: 'info', message: 'A', count: 1 });
+  handlers.log({ id: 2, ts: Date.now(), firstTs: Date.now(), level: 'action', message: 'B', count: 1 });
+  assert.strictEqual(document.querySelectorAll('#log p').length, 2);
   dom.window.close();
 });

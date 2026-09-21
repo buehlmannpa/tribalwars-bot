@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { effectiveLevels, nextOrder, matchBuilding } = require('../src/main/jobs/buildJob');
-const { chooseOrder, pickBuilding } = require('../src/main/jobs/trainJob');
+const { chooseOrder, pickBuilding, garageUnlocked } = require('../src/main/jobs/trainJob');
 
 test('nextOrder nimmt den ersten Auftrag, der noch nicht erreicht ist', () => {
   const template = [['main', 3], ['wood', 3], ['stone', 3]];
@@ -119,15 +119,72 @@ test('effectiveLevels nutzt die Auftragszahl der Spielseite', () => {
   assert.deepStrictEqual(effectiveLevels(state), { main: 24, garage: 9 });
 });
 
-test('pickBuilding wechselt reihum zwischen den Rekrutierungsgebaeuden', () => {
-  const template = { spear: 100, light: 50, ram: 10 };
-  const village = { levels: { barracks: 20, stable: 15, garage: 9 } };
-  village.lastTrainBuilding = 'barracks';
-  assert.strictEqual(pickBuilding(template, village), 'stable');
-  village.lastTrainBuilding = 'stable';
-  assert.strictEqual(pickBuilding(template, village), 'garage');
-  village.lastTrainBuilding = 'garage';
+test('pickBuilding haelt den Vorrang zweimal Kaserne, einmal Stall ein', () => {
+  const template = { spear: 100, light: 50 };
+  const village = { levels: { barracks: 20, stable: 15 }, units: { spear: 0, light: 0 } };
   assert.strictEqual(pickBuilding(template, village), 'barracks');
+  assert.strictEqual(pickBuilding(template, village), 'barracks');
+  assert.strictEqual(pickBuilding(template, village), 'stable');
+  assert.strictEqual(pickBuilding(template, village), 'barracks');
+  assert.strictEqual(pickBuilding(template, village), 'barracks');
+  assert.strictEqual(pickBuilding(template, village), 'stable');
+});
+
+test('pickBuilding laesst die Werkstatt aus, solange Kaserne und Stall zu duenn sind', () => {
+  const template = { spear: 100, light: 50, ram: 10 };
+  const village = {
+    levels: { barracks: 20, stable: 15, garage: 9 },
+    units: { spear: 10, light: 5, ram: 0 }
+  };
+  const gewaehlt = [
+    pickBuilding(template, village),
+    pickBuilding(template, village),
+    pickBuilding(template, village),
+    pickBuilding(template, village)
+  ];
+  assert.deepStrictEqual(gewaehlt, ['barracks', 'barracks', 'stable', 'barracks']);
+});
+
+test('pickBuilding nimmt die Werkstatt dazu, sobald die Haelfte steht', () => {
+  const template = { spear: 100, light: 50, ram: 10 };
+  const village = {
+    levels: { barracks: 20, stable: 15, garage: 9 },
+    units: { spear: 60, light: 30, ram: 0 }
+  };
+  const gewaehlt = [
+    pickBuilding(template, village),
+    pickBuilding(template, village),
+    pickBuilding(template, village),
+    pickBuilding(template, village)
+  ];
+  assert.deepStrictEqual(gewaehlt, ['barracks', 'barracks', 'stable', 'garage']);
+});
+
+test('garageUnlocked rechnet nur mit Truppen von Kaserne und Stall', () => {
+  const template = { spear: 100, light: 100, ram: 50 };
+  // 50 von 200 sind erst ein Viertel.
+  assert.strictEqual(garageUnlocked(template, {
+    levels: { barracks: 5, stable: 5, garage: 5 }, units: { spear: 50, light: 0 }
+  }), false);
+  // 100 von 200 sind genau die Haelfte.
+  assert.strictEqual(garageUnlocked(template, {
+    levels: { barracks: 5, stable: 5, garage: 5 }, units: { spear: 100, light: 0 }
+  }), true);
+});
+
+test('garageUnlocked zaehlt Ueberschuss einer Einheit nicht doppelt', () => {
+  const template = { spear: 100, light: 300 };
+  // Ohne Deckelung waeren 400 Speertraeger schon das ganze Ziel, gezaehlt
+  // werden aber nur die 100 aus der Vorlage.
+  const village = { levels: { barracks: 5, stable: 5 }, units: { spear: 400, light: 0 } };
+  assert.strictEqual(garageUnlocked(template, village), false);
+});
+
+test('garageUnlocked laesst fehlende Gebaeude aussen vor', () => {
+  const template = { spear: 100, light: 100, ram: 10 };
+  // Ohne Stall zaehlt nur die Kaserne, dort steht mehr als die Haelfte.
+  const village = { levels: { barracks: 20, stable: 0, garage: 5 }, units: { spear: 60 } };
+  assert.strictEqual(garageUnlocked(template, village), true);
 });
 
 test('pickBuilding ueberspringt Gebaeude, die im Dorf fehlen', () => {
@@ -224,7 +281,8 @@ test('pickBuilding schaut reihum, wenn nirgends etwas fehlt', () => {
   const village = {
     levels: { barracks: 20, stable: 15 },
     units: { spear: 100, light: 100 },
-    lastTrainBuilding: 'barracks'
+    trainRotation: 2
   };
   assert.strictEqual(pickBuilding(template, village), 'stable');
+  assert.strictEqual(pickBuilding(template, village), 'barracks');
 });
