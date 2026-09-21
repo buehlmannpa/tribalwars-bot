@@ -108,3 +108,13 @@ test('chooseOrder wartet, wenn die Teilmenge zu klein waere', () => {
   });
   assert.strictEqual(order, null);
 });
+
+test('effectiveLevels nutzt die Auftragszahl der Spielseite', () => {
+  const state = {
+    levels: { main: 23, garage: 9 },
+    orders: { main: 1 },
+    names: { main: 'Houptgeboeide' },
+    queue: []
+  };
+  assert.deepStrictEqual(effectiveLevels(state), { main: 24, garage: 9 });
+});

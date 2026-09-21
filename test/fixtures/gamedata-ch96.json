@@ -1,0 +1,24 @@
+{
+  "player": { "id": 1116941, "name": "PATthePAT", "villages": "6", "incomings": "0" },
+  "features": {
+    "Premium": { "possible": true, "active": false },
+    "AccountManager": { "possible": false, "active": false },
+    "FarmAssistent": { "possible": true, "active": false }
+  },
+  "village": {
+    "id": 2201,
+    "name": "-001-",
+    "wood": 51625, "stone": 31677, "iron": 36532,
+    "pop": 8961, "pop_max": 10848,
+    "x": 545, "y": 520,
+    "storage_max": 215219,
+    "buildings": {
+      "main": "23", "barracks": "20", "stable": "15", "garage": "9", "snob": "1",
+      "smith": "20", "place": "1", "statue": "1", "market": "17", "wood": "29",
+      "stone": "29", "iron": "27", "farm": "25", "storage": "27", "hide": "10", "wall": "20"
+    }
+  },
+  "csrf": "57fa980b",
+  "world": "ch96",
+  "screen": "main"
+}

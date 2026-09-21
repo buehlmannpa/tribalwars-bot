@@ -29,10 +29,13 @@ async function runBuildJob({ bridge, store, logger, village }) {
 
   const label = BUILDING_BY_KEY[next.key] ? BUILDING_BY_KEY[next.key].name : next.key;
   if (!state.buildable[next.key]) {
+    const hint = (state.blocked || {})[next.key];
     return {
       ok: true,
       skipped: true,
-      reason: `${label} Stufe ${next.level} noch nicht moeglich, es fehlen Rohstoffe oder Voraussetzungen`
+      reason: hint
+        ? `${label} Stufe ${next.level} wartet: ${hint}`
+        : `${label} Stufe ${next.level} noch nicht moeglich, es fehlen Rohstoffe oder Voraussetzungen`
     };
   }
 
@@ -45,8 +48,18 @@ async function runBuildJob({ bridge, store, logger, village }) {
 }
 
 // Stufen inklusive der Auftraege, die schon in der Bauschleife stehen.
+// Die Spielseite fuehrt je Gebaeude mit, wie viele Auftraege laufen. Das ist
+// die verlaessliche Quelle. Nur wenn sie fehlt, werden die Zeilen der
+// Bauschleife ueber ihre Beschriftung zugeordnet.
 function effectiveLevels(state) {
   const levels = { ...state.levels };
+  const orders = state.orders || {};
+  if (Object.keys(orders).length) {
+    for (const [key, count] of Object.entries(orders)) {
+      levels[key] = (levels[key] || 0) + Number(count);
+    }
+    return levels;
+  }
   const names = state.names || {};
   for (const entry of state.queue || []) {
     const key = matchBuilding(entry, names);

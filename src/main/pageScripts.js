@@ -32,6 +32,11 @@ const PROBE = wrap(`
     loggedIn: Boolean(gd && gd.village),
     screen: gd ? gd.screen : null,
     world: gd ? gd.world : null,
+    features: gd && gd.features ? {
+      premium: Boolean(gd.features.Premium && gd.features.Premium.active),
+      accountManager: Boolean(gd.features.AccountManager && gd.features.AccountManager.active),
+      farmAssistent: Boolean(gd.features.FarmAssistent && gd.features.FarmAssistent.active)
+    } : null,
     player: gd ? { id: gd.player.id, name: gd.player.name, villages: Number(gd.player.villages || 0), incomings: Number(gd.player.incomings || 0) } : null,
     village: gd && gd.village ? {
       id: String(gd.village.id),
@@ -63,42 +68,71 @@ const LIST_VILLAGES = wrap(`
 `);
 
 // Liest Gebaeudestufen, Bauschleife und die gerade klickbaren Ausbauknoepfe.
+// Geprueft gegen die Gebaeudeansicht von Welt 96. Die Seite legt unter
+// BuildingMain.buildings saemtliche Angaben je Gebaeude ab, das ist die
+// verlaesslichste Quelle. Die Tabelle dient als Rueckfallebene.
 const READ_BUILD = wrap(`
   var gd = window.game_data;
   if (!gd || !gd.village) return { ok: false, error: 'Keine Spieldaten auf der Seite' };
+  var info = (window.BuildingMain && window.BuildingMain.buildings) ? window.BuildingMain.buildings : {};
+
   var levels = {};
   var src = gd.village.buildings || {};
   Object.keys(src).forEach(function (key) { levels[key] = Number(src[key]); });
+
+  var names = {};
+  var orders = {};
+  var blocked = {};
+  var costs = {};
+  Object.keys(info).forEach(function (key) {
+    var b = info[key];
+    if (!b) return;
+    names[key] = b.name || key;
+    if (b.order) orders[key] = Number(b.order);
+    if (levels[key] === undefined && b.level !== undefined) levels[key] = Number(b.level);
+    costs[key] = { wood: Number(b.wood), stone: Number(b.stone), iron: Number(b.iron), pop: Number(b.pop) };
+    if (b.error) blocked[key] = String(b.error).replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();
+  });
+
+  // Ein Gebaeude gilt nur dann als baubar, wenn sein eigener Ausbauknopf
+  // sichtbar ist. Fehlen Rohstoffe, blendet das Spiel den Knopf aus und zeigt
+  // stattdessen einen Hinweis mit dem Zeitpunkt.
+  var buildable = {};
+  var rows = document.querySelectorAll('tr[id^="main_buildrow_"]');
+  Array.prototype.forEach.call(rows, function (row) {
+    var key = String(row.id).replace('main_buildrow_', '');
+    if (!names[key]) {
+      var label = row.querySelector('td a');
+      names[key] = label ? label.textContent.trim() : key;
+    }
+    var link = row.querySelector('a.btn-build[data-level-next]');
+    if (!link) return;
+    if (/cheap/.test(link.id) || /cheap/.test(link.getAttribute('href') || '')) return;
+    if (link.style && link.style.display === 'none') return;
+    buildable[key] = Number(link.getAttribute('data-level-next'));
+  });
+
   var queueRows = document.querySelectorAll('#buildqueue tr[id^="buildorder_"]');
   var queue = [];
   Array.prototype.forEach.call(queueRows, function (row) {
     var label = row.querySelector('td');
     queue.push(label ? label.textContent.trim().replace(/\\s+/g, ' ') : 'Auftrag');
   });
-  var names = {};
-  var rows = document.querySelectorAll('tr[id^="main_buildrow_"]');
-  Array.prototype.forEach.call(rows, function (row) {
-    var key = String(row.id).replace('main_buildrow_', '');
-    var cell = row.querySelector('td');
-    if (cell) names[key] = cell.textContent.trim().replace(/\\s+/g, ' ').replace(/\\(.*$/, '').trim();
-  });
-  var buildable = {};
-  Object.keys(levels).forEach(function (key) {
-    var next = levels[key] + 1;
-    var link = document.querySelector('#main_buildlink_' + key + '_' + next);
-    if (!link) {
-      link = document.querySelector('a.btn-build[href*="id=' + key + '"], a[href*="action=upgrade_building"][href*="id=' + key + '"]');
-    }
-    if (link && !/disabled/i.test(link.className)) buildable[key] = next;
-  });
+  var queueLength = queue.length;
+  var orderSum = Object.keys(orders).reduce(function (sum, key) { return sum + orders[key]; }, 0);
+  if (orderSum > queueLength) queueLength = orderSum;
+
   return {
     ok: true,
     villageId: String(gd.village.id),
     levels: levels,
-    queue: queue,
-    queueLength: queue.length,
-    buildable: buildable,
     names: names,
+    orders: orders,
+    blocked: blocked,
+    costs: costs,
+    queue: queue,
+    queueLength: queueLength,
+    buildable: buildable,
     resources: {
       wood: Math.floor(gd.village.wood),
       stone: Math.floor(gd.village.stone),
@@ -109,19 +143,25 @@ const READ_BUILD = wrap(`
 `);
 
 // Klickt den Ausbauknopf eines Gebaeudes, genau wie ein Mensch es taete.
+// Der Knopf mit den um zwanzig Prozent reduzierten Kosten kostet dreissig
+// Premiumpunkte. Er wird ausdruecklich nie angeruehrt.
 const clickBuild = (key) => wrap(`
   var key = ${JSON.stringify(key)};
-  var gd = window.game_data;
-  if (!gd || !gd.village) return { ok: false, error: 'Keine Spieldaten auf der Seite' };
-  var level = Number((gd.village.buildings || {})[key] || 0);
-  var link = document.querySelector('#main_buildlink_' + key + '_' + (level + 1));
-  if (!link) {
-    link = document.querySelector('a.btn-build[href*="id=' + key + '"], a[href*="action=upgrade_building"][href*="id=' + key + '"]');
+  var row = document.getElementById('main_buildrow_' + key);
+  if (!row) return { ok: false, error: 'Keine Tabellenzeile fuer ' + key + ' gefunden' };
+  var link = row.querySelector('a.btn-build[data-level-next]');
+  if (!link) return { ok: false, error: key + ' ist vollstaendig ausgebaut oder hat keinen Ausbauknopf' };
+  var href = link.getAttribute('href') || '';
+  if (/cheap/.test(link.id) || /cheap/.test(href)) {
+    return { ok: false, error: 'Sicherung: ein Knopf mit Premiumkosten wird nie geklickt' };
   }
-  if (!link) return { ok: false, error: 'Kein Ausbauknopf fuer ' + key + ' gefunden' };
-  if (/disabled/i.test(link.className)) return { ok: false, error: 'Ausbau fuer ' + key + ' gerade nicht moeglich' };
+  if (link.style && link.style.display === 'none') {
+    var hint = row.querySelector('.build_options .inactive');
+    return { ok: false, error: hint ? hint.textContent.replace(/\\s+/g, ' ').trim() : 'Ausbau gerade nicht moeglich' };
+  }
+  var target = Number(link.getAttribute('data-level-next'));
   link.click();
-  return { ok: true, building: key, target: level + 1 };
+  return { ok: true, building: key, target: target };
 `);
 
 // Liest die Rekrutierungsseite aus.

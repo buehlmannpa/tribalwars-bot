@@ -8,8 +8,8 @@ const { BUILD_TEMPLATES, TROOP_TEMPLATES } = require('../shared/templates');
 // Alles bleibt lokal im Benutzerordner der App. Es verlaesst den Laptop nie.
 const DEFAULTS = {
   world: {
-    host: 'https://ch97.staemme.ch',
-    label: 'Welt 97 Schweiz'
+    host: 'https://ch96.staemme.ch',
+    label: 'Welt 96 Schweiz'
   },
   automation: {
     enabled: false,

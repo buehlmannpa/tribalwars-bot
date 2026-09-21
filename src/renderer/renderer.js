@@ -32,6 +32,9 @@ function renderStatus(status) {
   badge.className = 'badge ' + (status.running ? 'running' : 'stopped');
   const parts = [];
   if (status.pauseReason) parts.push(status.pauseReason);
+  if (status.probe && status.probe.features) {
+    parts.push(status.probe.features.premium ? 'Premium aktiv' : 'ohne Premium');
+  }
   parts.push(`${status.actionsLastHour} Aktionen in der letzten Stunde`);
   if (status.running && status.nextTickAt) {
     const seconds = Math.max(0, Math.round((status.nextTickAt - Date.now()) / 1000));

@@ -54,6 +54,36 @@ Welt bei Meilensteinen befristet gratis.
 
 Diese App bildet bewusst zuerst Dorfmanager und Truppenmanager nach.
 
+## 3a. Befunde aus der echten Sitzung auf Welt 96
+
+Geprueft an einem Seitenabzug der Gebaeudeansicht von Dorf 2201.
+
+1. Die gespielte Welt ist **ch96**, nicht ch97. Grundadresse
+   `https://ch96.staemme.ch`. Spielversion 8.435.
+2. Premium ist auf diesem Konto **nicht aktiv**. Die Seite meldet
+   `features.Premium.active = false` und
+   `features.AccountManager.possible = false`. Der offizielle Accountmanager
+   ist damit derzeit gar nicht buchbar, auch nicht als Gratisstufe.
+3. Die Gebaeudeansicht traegt im Seitenkontext das Objekt
+   `BuildingMain.buildings`. Es enthaelt je Gebaeude Stufe, naechste Stufe,
+   Kosten, Bauzeit, Einwohnerbedarf, Voraussetzungen, die Anzahl laufender
+   Auftraege unter `order` und im Feld `error` den Grund, warum gerade nicht
+   gebaut werden kann. Das ist die verlaesslichste Quelle, viel besser als
+   ein Auslesen der Tabelle.
+4. Jede Gebaeudezeile heisst `tr#main_buildrow_<schluessel>`. Der Ausbauknopf
+   ist `a.btn.btn-build` mit der Kennung `main_buildlink_<schluessel>_<stufe>`
+   und dem Merkmal `data-level-next`.
+5. **Wichtig**: Fehlen Rohstoffe, wird der Ausbauknopf nicht gesperrt, sondern
+   mit `style="display:none"` ausgeblendet. An seiner Stelle steht ein
+   Hinweis mit dem Zeitpunkt. Eine Pruefung auf eine Sperrklasse geht also ins
+   Leere, es zaehlt allein die Sichtbarkeit.
+6. **Wichtig**: Daneben liegt immer ein zweiter Knopf
+   `main_buildlink_<schluessel>_cheap` mit der Beschriftung minus zwanzig
+   Prozent. Dieser kostet dreissig Premiumpunkte je Klick. Die App darf ihn
+   unter keinen Umstaenden treffen.
+7. Ist ein Gebaeude fertig, fehlt der Knopf ganz und die Zeile enthaelt nur
+   den Hinweis, dass das Gebaeude vollstaendig ausgebaut ist.
+
 ## 4. Technische Oberflaeche
 
 1. Das Spiel ist serverseitig gerendertes PHP. Jede Ansicht haengt an
