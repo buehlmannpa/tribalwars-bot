@@ -1,90 +1,107 @@
 # Staemme Manager
 
-Lokale macOS App, die Doerfer in Die Staemme CH nach Bauplan ausbaut und Truppen
-nach Vorlage rekrutiert. Alles laeuft auf deinem Laptop, nichts wird an einen
-fremden Dienst gesendet.
+Lokale macOS App, die in Die Staemme Doerfer nach Bauplan ausbaut und Truppen
+nach Vorlage rekrutiert. Sie arbeitet mit jeder Welt und jedem Konto, alles
+laeuft auf deinem Rechner, nichts wird an einen fremden Dienst gesendet.
 
 ## Wichtiger Hinweis vorab
 
-Paragraf 6 der offiziellen Spielregeln auf staemme.ch verbietet Bots, Skripte
-und Werkzeuge, die automatisierte Aktionen bereitstellen oder Premium Funktionen
-nachbilden. Der offizielle Accountmanager ist genau so eine Premium Funktion.
-Wer diese App einsetzt, riskiert eine dauerhafte Sperre des Welt Accounts und
-des Master Accounts. Der Entscheid liegt bei dir.
+Paragraf 6 der offiziellen Spielregeln verbietet Bots, Skripte und Werkzeuge,
+die automatisierte Aktionen bereitstellen oder Premium Funktionen nachbilden.
+Der offizielle Accountmanager ist genau so eine Premium Funktion. Wer diese App
+einsetzt, riskiert eine dauerhafte Sperre des Welt Accounts und des Master
+Accounts. Der Entscheid liegt bei dir.
 
-## Was die App heute kann
+## Was die App kann
 
 1. Eigenes Spielfenster mit dauerhaft gespeicherter Anmeldung, du kannst darin
    jederzeit selbst spielen und eingreifen.
-2. Doerfer aus der Produktionsuebersicht einlesen.
-3. Beliebig viele Bau und Truppenplaene anlegen, duplizieren und bearbeiten,
+2. Die Welt wird beim ersten Anmelden automatisch aus dem Spielfenster
+   uebernommen, egal ob Schweiz, Deutschland oder eine andere Landesfassung.
+3. Doerfer aus der Produktionsuebersicht einlesen.
+4. Beliebig viele Bau und Truppenplaene anlegen, duplizieren und bearbeiten,
    danach in der Dorfliste mehreren Doerfern auf einmal zuweisen.
-4. Bauvorlagen je Dorf abarbeiten, inklusive der Auftraege, die bereits in der
+5. Bauplaene abarbeiten, inklusive der Auftraege, die bereits in der
    Bauschleife stehen.
-5. Truppenvorlagen je Dorf abarbeiten, in Paketen, mit Rohstoffpuffer und
-   Bauernhof Puffer, Vorrang gegenueber dem Bauplan einstellbar.
-6. Sicherungen: Erkennung von Botschutz und abgelaufener Sitzung mit sofortigem
+6. Truppenvorlagen abarbeiten, in Paketen, mit Rohstoffpuffer und Bauernhof
+   Puffer, Vorrang gegenueber dem Bauplan einstellbar.
+7. Modus nur beobachten, in dem die App alles liest und protokolliert, aber
+   nichts im Spiel anruehrt.
+8. Sicherungen: Erkennung von Botschutz und abgelaufener Sitzung mit sofortigem
    Halt und Mitteilung, zufaellige Abstaende, Aktionslimite pro Stunde,
    optionale Nachtpause, Ueberspringen bei eingehenden Angriffen.
-7. Seitenabzug auf die Platte, um Auswahlpfade gegen die echte Welt zu pruefen.
+9. Seitenabzug auf die Platte, um Auswahlpfade gegen eine Welt zu pruefen.
 
 Noch nicht enthalten sind Rohstoffausgleich, Muenzpraegung, Farmen, Raubzuege
 und Angriffsplanung.
 
-## Bauen auf dem Mac
+## Installation
+
+Die fertige Datei entsteht im Ablauf unter `.github/workflows/build-macos.yml`
+auf einem Mac Rechner bei GitHub. Unter Actions den Lauf oeffnen, ganz nach
+unten scrollen und unter Artifacts `staemme-manager-dmg` herunterladen.
+
+Oder selbst bauen:
 
 ```bash
 npm install
 npm start          # zum Ausprobieren ohne Verpackung
-npm run dist:arm   # erzeugt release/Staemme Manager-0.1.0-arm64.dmg
+npm run dist:arm   # Apple Silicon
+npm run dist:intel # Intel
 ```
 
-Gebaut wird fuer Apple Silicon. Alternativ laesst sich die Datei ueber den
-Ablauf unter `.github/workflows/build-macos.yml` auf einem Mac Rechner bei
-GitHub erzeugen und dort herunterladen.
+### Erster Start unter macOS
 
-Die App ist nicht bei Apple beglaubigt. Beim ersten Start meldet macOS deshalb
-einen unbekannten Entwickler. Abhilfe: im Finder mit der rechten Maustaste auf
-die App klicken und Oeffnen waehlen, oder einmalig
+Die App ist nicht bei Apple beglaubigt. Alles, was aus dem Netz geladen wurde,
+bekommt von macOS eine Quarantaenemarkierung, und ohne Beglaubigung meldet das
+System dann **die App sei beschaedigt**. Sie ist es nicht, die Markierung muss
+einmalig entfernt werden:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Staemme Manager.app"
 ```
 
+Danach startet die App normal. Wer den Weg ueber den Finder bevorzugt, kann es
+mit der rechten Maustaste und Oeffnen versuchen, bei der Meldung beschaedigt
+hilft aber nur der Befehl oben.
+
 ## Erster Lauf, Schritt fuer Schritt
 
 Beim ersten Start ist der Modus **nur beobachten** eingeschaltet. Die App liest
 dann alle Seiten und schreibt ins Protokoll, was sie tun wuerde, klickt aber
-nichts im Spiel. So laesst sich der Betrieb gefahrlos pruefen.
+nichts im Spiel.
 
-1. App per Doppelklick starten. Es oeffnen sich das Dashboard und das
-   Spielfenster.
-2. Im Spielfenster bei Welt 96 anmelden. Die Anmeldung bleibt gespeichert.
-3. Im Dashboard auf **Status pruefen** klicken. Im Protokoll muss angemeldet
-   stehen, in der Kopfzeile erscheint ohne Premium.
-4. Auf **Doerfer einlesen** klicken. Die sechs Doerfer sind bereits mit
-   Vorlagen hinterlegt, das Einlesen frischt nur Namen und Koordinaten auf.
-5. Auf **Automatik starten** klicken. Die Kennzeichnung oben zeigt beobachtet.
-6. Eine halbe Stunde laufen lassen und das Protokoll lesen. Dort steht je Dorf,
-   welches Gebaeude die App ausbauen und welche Einheiten sie bestellen wuerde,
-   und warum sie gegebenenfalls wartet.
-7. Sieht das stimmig aus, unter Einstellungen den Haken bei nur beobachten
+1. App starten. Es oeffnen sich das Dashboard und das Spielfenster.
+2. Im Spielfenster deine Welt waehlen und anmelden. Die Anmeldung bleibt
+   gespeichert, die Welt wird uebernommen und oben im Dashboard angezeigt.
+3. Auf **Status pruefen** klicken. Im Protokoll muss angemeldet stehen.
+4. Auf **Doerfer einlesen** klicken. Die Dorfliste fuellt sich.
+5. Unter Vorlagen die gewuenschten Plaene anlegen oder die mitgelieferten
+   verwenden. Danach in der Dorfliste die Doerfer ankreuzen und ueber die
+   Leiste oben den Bau und den Truppenplan zuweisen.
+6. Auf **Automatik starten** klicken. Die Kennzeichnung oben zeigt beobachtet.
+7. Eine halbe Stunde laufen lassen und das Protokoll lesen.
+8. Sieht das stimmig aus, unter Einstellungen den Haken bei nur beobachten
    entfernen. Ab da handelt die App selbstaendig.
 
 Zum Anhalten genuegt der Knopf Anhalten oder Befehlstaste und Punkt.
 
-## Voreingestellte Zuweisung
+## Einstellungen, die du kennen solltest
 
-| Dorf | Koordinaten | Bauplan | Truppen |
-|---|---|---|---|
-| -001- | 545 zu 520 | Defensiv | Defensiv voll |
-| -002- | 545 zu 521 | Defensiv | Defensiv voll |
-| -003- | 546 zu 522 | Offensiv | Offensiv voll |
-| -004- | 547 zu 520 | Defensiv | Defensiv voll |
-| -005- | 543 zu 520 | Defensiv | Defensiv voll |
-| -006- | 543 zu 521 | Offensiv | Offensiv voll |
+| Einstellung | Bedeutung |
+|---|---|
+| Nur beobachten | Es wird nichts im Spiel geklickt |
+| Vorrang bei Rohstoffen | Bauplan zuerst, Truppen zuerst oder abwechselnd |
+| Bauschleife fuellen bis | Ohne Premium nimmt das Spiel hoechstens zwei Auftraege |
+| Kleinste Bestellmenge | Unterhalb davon wartet die Rekrutierung auf Rohstoffe |
+| Rohstoffpuffer | Diese Mengen bleiben dem Bauplan vorbehalten |
+| Bauernhof Puffer | So viele Plaetze bleiben frei |
+| Pause minimal und maximal | Zufaelliger Abstand zwischen zwei Durchlaeufen |
+| Aktionen pro Stunde | Obergrenze fuer alles, was die App im Spiel ausloest |
+| Nachtpause | Zeitfenster, in dem nichts geschieht |
 
-Die Plaene lassen sich im Dashboard frei aendern und neu zuweisen.
+Ohne Premium fehlt im Spiel die Ausmusterung, und die Bauschleife ist auf zwei
+Auftraege begrenzt. Die App richtet sich danach.
 
 ## Tests
 
@@ -104,13 +121,16 @@ npm test
 | `src/main/jobs/trainJob.js` | Truppenmanager, Rekrutierung |
 | `src/shared/templates.js` | Mitgelieferte Vorlagen |
 | `src/renderer/` | Dashboard |
-| `docs/ANALYSE.md` | Analyse des Spiels und der Schweizer Welt |
+| `build/afterPack.js` | Signatur ohne Zertifikat, damit macOS die App startet |
+| `tools/simulate.js` | Trockenlauf gegen ein nachgebildetes Dorf |
+| `tools/demo.html` | Anklickbare Fassung der Logik fuer den Browser |
+| `docs/ANALYSE.md` | Analyse des Spiels und des Seitenaufbaus |
 
-## Stand der Pruefung gegen die echte Welt
+## Stand der Pruefung
 
-Die Schnipsel in `src/main/pageScripts.js` sind gegen wortgetreue Auszuege der
-Seiten von Welt 96 geprueft. Die Auszuege liegen unter `test/fixtures`, die
-Tests fuehren die Skripte mit jsdom dagegen aus.
+Die Schnipsel in `src/main/pageScripts.js` sind gegen wortgetreue Auszuege
+echter Spielseiten der Version 8.435 geprueft. Die Auszuege liegen unter
+`test/fixtures`, die Tests fuehren die Skripte mit jsdom dagegen aus.
 
 | Ansicht | Stand |
 |---|---|
@@ -124,16 +144,8 @@ Betrieb, also Anmeldung, Navigation und das tatsaechliche Absenden.
 
 ## Testen ohne Mac
 
-Zwei Wege, um die Entscheidungen zu pruefen, bevor die App je eine echte Welt
-beruehrt:
-
 ```bash
-npm test                      # Einheitstests der Logik
+npm test                              # Einheitstests der Logik
 node tools/simulate.js 600            # Trockenlauf, Vorrang Bauplan
 node tools/simulate.js 600 troops     # Trockenlauf, Vorrang Truppen
 ```
-
-Der Trockenlauf bildet ein Dorf mit Rohstoffwachstum, Bauzeiten und
-Bauernhofplaetzen nach und laesst Dorfmanager und Truppenmanager darauf
-arbeiten. Zusaetzlich liegt in `tools/demo.html` eine anklickbare Fassung fuer
-den Browser mit derselben Entscheidungslogik.

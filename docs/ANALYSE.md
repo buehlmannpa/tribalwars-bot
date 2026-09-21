@@ -16,7 +16,13 @@ dauerhafte Sperre des Welt Accounts und moeglicherweise des Master Accounts.
 Zusaetzlich schuetzt hCaptcha die Seiten, und im Spiel erscheint zufaellig der
 Botschutz, der alle Aktionen blockiert, bis ein Mensch bestaetigt.
 
-## 2. Welt 96 Schweiz
+## 2. Beispielwelt
+
+Die folgenden Werte stammen aus einer bestimmten Welt und dienen als Beispiel.
+Die App bindet sich an keine Welt, sie uebernimmt die Adresse beim Anmelden aus
+dem Spielfenster und liest die Weltdaten bei Bedarf selbst.
+
+### Welt 96 Schweiz
 
 Abgefragt ueber `https://ch96.staemme.ch/interface.php?func=get_config`. Das ist
 die gespielte Welt. Eine fruehere Fassung dieser Datei nannte Welt 97, deren

@@ -152,3 +152,17 @@ test('chooseOrder nimmt den Einwohnerbedarf von der Spielseite', () => {
   });
   assert.strictEqual(order.amount, 7);
 });
+
+const { isWorldHost } = require('../src/main/bridge');
+
+test('isWorldHost erkennt eine Weltadresse an der Nummer im Namen', () => {
+  assert.strictEqual(isWorldHost('https://ch96.staemme.ch'), true);
+  assert.strictEqual(isWorldHost('https://de249.die-staemme.de'), true);
+  assert.strictEqual(isWorldHost('https://en130.tribalwars.net'), true);
+});
+
+test('isWorldHost erkennt die Startseite als keine Welt', () => {
+  assert.strictEqual(isWorldHost('https://www.staemme.ch'), false);
+  assert.strictEqual(isWorldHost('https://www.die-staemme.de'), false);
+  assert.strictEqual(isWorldHost(''), false);
+});

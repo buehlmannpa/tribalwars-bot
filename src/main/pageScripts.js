@@ -27,6 +27,7 @@ const PROBE = wrap(`
   return {
     ok: true,
     url: url,
+    origin: location.origin,
     sessionExpired: sessionExpired,
     captcha: captcha,
     loggedIn: Boolean(gd && gd.village),

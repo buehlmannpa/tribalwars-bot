@@ -40,7 +40,9 @@ class Bridge {
       }
     });
     this.win.on('closed', () => { this.win = null; });
-    this.win.loadURL(`${this.host}/game.php?screen=overview_villages&mode=prod`);
+    this.win.loadURL(isWorldHost(this.host)
+      ? `${this.host}/game.php?screen=overview_villages&mode=prod`
+      : `${this.host}/`);
     return this.win;
   }
 
@@ -74,7 +76,23 @@ class Bridge {
   }
 
   async probe() {
-    return this.exec(scripts.PROBE);
+    const probe = await this.exec(scripts.PROBE);
+    this.adoptWorld(probe);
+    return probe;
+  }
+
+  // Die App bindet sich an keine bestimmte Welt. Sobald im Spielfenster eine
+  // angemeldete Sitzung steht, wird deren Adresse uebernommen.
+  adoptWorld(probe) {
+    if (!probe || !probe.ok || !probe.loggedIn || !probe.origin) return;
+    if (probe.origin === this.host) return;
+    this.store.patch({
+      world: {
+        host: probe.origin,
+        label: probe.world ? `Welt ${probe.world}` : probe.origin
+      }
+    });
+    this.logger.info(`Welt uebernommen: ${probe.world || probe.origin}`);
   }
 
   async listVillages() {
@@ -139,4 +157,9 @@ class Bridge {
   }
 }
 
-module.exports = { Bridge, sleep };
+// Eine Weltadresse hat eine Nummer im Namen, etwa ch96 oder de249.
+function isWorldHost(host) {
+  return /^https?:\/\/[a-z]+\d+\./i.test(String(host || ''));
+}
+
+module.exports = { Bridge, sleep, isWorldHost };

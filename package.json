@@ -27,6 +27,7 @@
     },
     "files": [
       "src/**/*",
+      "build/**/*",
       "package.json"
     ],
     "mac": {
@@ -45,6 +46,7 @@
     "dmg": {
       "title": "Staemme Manager"
     },
-    "publish": null
+    "publish": null,
+    "afterPack": "build/afterPack.js"
   }
 }

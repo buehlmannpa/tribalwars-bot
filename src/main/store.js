@@ -6,32 +6,12 @@ const { app } = require('electron');
 const { BUILD_TEMPLATES, TROOP_TEMPLATES } = require('../shared/templates');
 
 // Alles bleibt lokal im Benutzerordner der App. Es verlaesst den Laptop nie.
-// Die Doerfer sind bereits eingetragen, so wie sie am 21. September 2026 in
-// der Dorfuebersicht standen. Beim Einlesen werden Name und Koordinaten
-// aufgefrischt, die Zuweisungen bleiben bestehen.
-const VILLAGES = [
-  ['2201', '-001-', '545|520', 'Defensiv', 'Defensiv voll'],
-  ['2283', '-002-', '545|521', 'Defensiv', 'Defensiv voll'],
-  ['2347', '-003-', '546|522', 'Offensiv', 'Offensiv voll'],
-  ['2312', '-004-', '547|520', 'Defensiv', 'Defensiv voll'],
-  ['1990', '-005-', '543|520', 'Defensiv', 'Defensiv voll'],
-  ['2153', '-006-', '543|521', 'Offensiv', 'Offensiv voll']
-];
-
-const seededVillages = () => Object.fromEntries(VILLAGES.map(([id, name, coords, build, troop]) => [id, {
-  id, name, coords,
-  buildTemplate: build,
-  troopTemplate: troop,
-  buildActive: true,
-  troopActive: true,
-  lastRun: 0,
-  note: ''
-}]));
-
 const DEFAULTS = {
+  // Die Welt wird beim ersten Anmelden aus dem Spielfenster uebernommen.
+  // Bis dahin zeigt das Fenster die Startseite, auf der du deine Welt waehlst.
   world: {
-    host: 'https://ch96.staemme.ch',
-    label: 'Welt 96 Schweiz'
+    host: 'https://www.staemme.ch',
+    label: 'noch keine Welt gewaehlt'
   },
   automation: {
     enabled: false,
@@ -54,7 +34,7 @@ const DEFAULTS = {
     keepAwake: true,
     notifications: { captcha: true, login: true, incoming: true }
   },
-  villages: seededVillages(),
+  villages: {},
   buildTemplates: BUILD_TEMPLATES,
   troopTemplates: TROOP_TEMPLATES
 };
