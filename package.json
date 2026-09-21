@@ -9,9 +9,9 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --mac",
-    "dist:arm": "electron-builder --mac --arm64",
-    "dist:intel": "electron-builder --mac --x64",
+    "dist": "electron-builder --mac --publish never",
+    "dist:arm": "electron-builder --mac --arm64 --publish never",
+    "dist:intel": "electron-builder --mac --x64 --publish never",
     "test": "node --test test/*.test.js"
   },
   "devDependencies": {
@@ -44,6 +44,7 @@
     },
     "dmg": {
       "title": "Staemme Manager"
-    }
+    },
+    "publish": null
   }
 }
