@@ -150,7 +150,11 @@ const READ_BUILD = wrap(`
   };
 `);
 
-// Klickt den Ausbauknopf eines Gebaeudes, genau wie ein Mensch es taete.
+// Loest den Ausbau eines Gebaeudes aus.
+// Das Spiel haengt an den Ausbauknoepfen eigene Behandlungsroutinen. Deshalb
+// wird nach Moeglichkeit die Funktion des Spiels selbst aufgerufen, genau die,
+// die das Spiel auch an seinen eigenen Hinweistexten hinterlegt. Nur wenn es
+// sie nicht gibt, wird auf einen Klick zurueckgegriffen.
 // Der Knopf mit den um zwanzig Prozent reduzierten Kosten kostet dreissig
 // Premiumpunkte. Er wird ausdruecklich nie angeruehrt.
 const clickBuild = (key) => wrap(`
@@ -168,8 +172,14 @@ const clickBuild = (key) => wrap(`
     return { ok: false, error: hint ? hint.textContent.replace(/\\s+/g, ' ').trim() : 'Ausbau gerade nicht moeglich' };
   }
   var target = Number(link.getAttribute('data-level-next'));
-  link.click();
-  return { ok: true, building: key, target: target };
+  var how = 'Klick';
+  if (window.BuildingMain && typeof window.BuildingMain.build === 'function') {
+    how = 'BuildingMain.build';
+    window.BuildingMain.build(key);
+  } else {
+    link.click();
+  }
+  return { ok: true, building: key, target: target, how: how };
 `);
 
 // Prueft, ob der Ausbau moeglich waere, ohne etwas anzuruehren.
@@ -337,9 +347,51 @@ const SCAN_VILLAGE = wrap(`
   };
 `);
 
+// Fingerabdruck der Gebaeudeseite. Er aendert sich genau dann, wenn ein
+// Auftrag tatsaechlich in der Bauschleife gelandet ist. Rohstoffe bleiben
+// bewusst aussen vor, sie wachsen ohnehin laufend weiter.
+const buildFingerprint = (key) => wrap(`
+  var key = ${JSON.stringify(key)};
+  var row = document.getElementById('main_buildrow_' + key);
+  var link = row ? row.querySelector('a.btn-build[data-level-next]') : null;
+  var queue = document.querySelector('#buildqueue');
+  var info = (window.BuildingMain && window.BuildingMain.buildings) ? window.BuildingMain.buildings[key] : null;
+  return {
+    ok: true,
+    queueRows: queue ? queue.querySelectorAll('tr').length : 0,
+    queueText: queue ? queue.textContent.replace(/\\s+/g, ' ').trim().slice(0, 400) : '',
+    nextLevel: link ? Number(link.getAttribute('data-level-next')) : null,
+    hidden: link ? Boolean(link.style && link.style.display === 'none') : true,
+    orders: info && info.order ? Number(info.order) : 0
+  };
+`);
+
+// Fingerabdruck der Rekrutierungsseite. Nach einem angenommenen Auftrag leert
+// das Spiel die Eingabefelder und ergaenzt die Ausbildungsliste.
+const TRAIN_FINGERPRINT = wrap(`
+  var box = document.querySelector('.trainqueue_wrap');
+  var form = document.querySelector('#train_form');
+  var values = '';
+  if (form) {
+    var inputs = form.querySelectorAll('input.recruit_unit, input[type="text"][name]');
+    Array.prototype.forEach.call(inputs, function (input) {
+      if (input.name && input.name !== 'h') values += input.name + '=' + input.value + ';';
+    });
+  }
+  return {
+    ok: true,
+    queueEntries: box ? box.querySelectorAll('a.btn-cancel').length : 0,
+    queueText: box ? box.textContent.replace(/\\s+/g, ' ').trim().slice(0, 400) : '',
+    values: values
+  };
+`);
+
 // Liefert die rohe Seite, damit Auswahlpfade gegen die echte Welt geprueft werden koennen.
 const CAPTURE = wrap(`
   return { ok: true, url: location.href, html: document.documentElement.outerHTML };
 `);
 
-module.exports = { PROBE, LIST_VILLAGES, READ_BUILD, READ_TRAIN, SCAN_VILLAGE, CAPTURE, clickBuild, canBuild, submitTrain };
+module.exports = {
+  PROBE, LIST_VILLAGES, READ_BUILD, READ_TRAIN, SCAN_VILLAGE, CAPTURE,
+  clickBuild, canBuild, submitTrain, buildFingerprint, TRAIN_FINGERPRINT
+};

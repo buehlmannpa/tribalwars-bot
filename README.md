@@ -32,10 +32,14 @@ Accounts. Der Entscheid liegt bei dir.
    Puffer, Vorrang gegenueber dem Bauplan einstellbar.
 7. Modus nur beobachten, in dem die App alles liest und protokolliert, aber
    nichts im Spiel anruehrt.
-8. Sicherungen: Erkennung von Botschutz und abgelaufener Sitzung mit sofortigem
+8. Jede Aktion wird nachgewiesen. Nach einem Ausbau oder einer Rekrutierung
+   prueft die App, ob das Spiel den Auftrag wirklich uebernommen hat, und
+   meldet Erfolg erst dann. Bleibt der Nachweis aus, erscheint eine Warnung
+   und einmal je Sitzung wird ein Seitenabzug zur Fehlersuche abgelegt.
+9. Sicherungen: Erkennung von Botschutz und abgelaufener Sitzung mit sofortigem
    Halt und Mitteilung, zufaellige Abstaende, Aktionslimite pro Stunde,
    optionale Nachtpause, Ueberspringen bei eingehenden Angriffen.
-9. Seitenabzug auf die Platte, um Auswahlpfade gegen eine Welt zu pruefen.
+10. Seitenabzug auf die Platte, um Auswahlpfade gegen eine Welt zu pruefen.
 
 Noch nicht enthalten sind Rohstoffausgleich, Muenzpraegung, Farmen, Raubzuege
 und Angriffsplanung.
@@ -88,8 +92,10 @@ nichts im Spiel.
    Leiste oben den Bau und den Truppenplan zuweisen.
 5. Auf **Automatik starten** klicken. Die Kennzeichnung oben zeigt beobachtet.
 6. Eine halbe Stunde laufen lassen und das Protokoll lesen.
-7. Sieht das stimmig aus, unter Einstellungen den Haken bei nur beobachten
-   entfernen. Ab da handelt die App selbstaendig.
+7. Sieht das stimmig aus, im gelben Band oben auf Jetzt scharf schalten
+   klicken oder unter Einstellungen den Haken bei nur beobachten entfernen.
+   Solange das Band sichtbar ist, klickt die App nichts im Spiel, und jede
+   Protokollzeile beginnt mit nur beobachtet.
 
 Zum Anhalten genuegt der Knopf Anhalten oder Befehlstaste und Punkt.
 

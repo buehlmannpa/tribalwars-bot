@@ -287,6 +287,7 @@ function chipBlock(label, values, names, emptyText) {
 
 function renderSettings() {
   const a = state.config.automation;
+  $('observeBanner').hidden = !a.observeOnly;
   $('host').value = state.config.world.host;
   $('minDelay').value = a.minDelaySeconds;
   $('maxDelay').value = a.maxDelaySeconds;
@@ -367,6 +368,11 @@ document.querySelectorAll('.tab').forEach((tab) => {
 $('btnStart').addEventListener('click', async () => renderStatus(await window.api.invoke('automation:start')));
 $('btnStop').addEventListener('click', async () => renderStatus(await window.api.invoke('automation:stop')));
 $('btnGame').addEventListener('click', () => window.api.invoke('window:game'));
+$('btnGoLive').addEventListener('click', async () => {
+  state.config = await window.api.invoke('config:patch', { automation: { observeOnly: false } });
+  renderSettings();
+  appendLog({ ts: Date.now(), level: 'warn', message: 'Beobachtungsmodus ausgeschaltet, die App handelt ab jetzt selbstaendig' });
+});
 $('btnProbe').addEventListener('click', () => window.api.invoke('probe'));
 $('btnCapture').addEventListener('click', () => window.api.invoke('capture', { label: 'seite' }));
 $('btnClearLog').addEventListener('click', () => { $('log').innerHTML = ''; });

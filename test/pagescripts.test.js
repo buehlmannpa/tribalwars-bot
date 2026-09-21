@@ -110,3 +110,51 @@ test('clickBuild meldet ein vollstaendig ausgebautes Gebaeude', () => {
   assert.match(result.error, /vollstaendig ausgebaut/);
   assert.strictEqual(clicks.length, 0);
 });
+
+test('clickBuild ruft die Funktion des Spiels auf, wenn es sie gibt', () => {
+  const { run, window, clicks } = openPage();
+  const calls = [];
+  window.BuildingMain.build = (key) => { calls.push(key); return false; };
+  const result = run(scripts.clickBuild('main'));
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.how, 'BuildingMain.build');
+  assert.deepStrictEqual([...calls], ['main']);
+  // Der Knopf wird dann nicht zusaetzlich geklickt.
+  assert.strictEqual(clicks.length, 0);
+});
+
+test('clickBuild weicht auf den Knopf aus, wenn die Funktion fehlt', () => {
+  const { run, window, clicks } = openPage();
+  delete window.BuildingMain.build;
+  const result = run(scripts.clickBuild('main'));
+  assert.strictEqual(result.how, 'Klick');
+  assert.strictEqual(clicks.length, 1);
+});
+
+test('buildFingerprint bleibt gleich, solange sich nichts tut', () => {
+  const { run } = openPage();
+  const a = run(scripts.buildFingerprint('main'));
+  const b = run(scripts.buildFingerprint('main'));
+  assert.strictEqual(JSON.stringify(a), JSON.stringify(b));
+});
+
+test('buildFingerprint erkennt einen neuen Auftrag in der Bauschleife', () => {
+  const { run, window } = openPage();
+  const before = run(scripts.buildFingerprint('main'));
+  const queue = window.document.createElement('table');
+  queue.id = 'buildqueue';
+  queue.innerHTML = '<tr id="buildorder_1"><td>Houptgeböide Stufe 24</td></tr>';
+  window.document.body.appendChild(queue);
+  const after = run(scripts.buildFingerprint('main'));
+  assert.notStrictEqual(JSON.stringify(after), JSON.stringify(before));
+  assert.strictEqual(after.queueRows, 1);
+});
+
+test('buildFingerprint erkennt die naechste Stufe am Knopf', () => {
+  const { run, window } = openPage();
+  const before = run(scripts.buildFingerprint('main'));
+  window.document.querySelector('#main_buildlink_main_24').setAttribute('data-level-next', '25');
+  const after = run(scripts.buildFingerprint('main'));
+  assert.strictEqual(before.nextLevel, 24);
+  assert.strictEqual(after.nextLevel, 25);
+});

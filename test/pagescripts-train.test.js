@@ -144,3 +144,34 @@ test('SCAN_VILLAGE kommt ohne Truppenanzeige zurecht', () => {
   assert.strictEqual(state.ok, true);
   assert.strictEqual(Object.keys(state.unitsHome).length, 0);
 });
+
+test('TRAIN_FINGERPRINT bleibt gleich, solange sich nichts tut', () => {
+  const { run } = openPage('train-barracks-ch96.html', { screen: 'barracks', units: BARRACKS_UNITS });
+  const a = run(scripts.TRAIN_FINGERPRINT);
+  const b = run(scripts.TRAIN_FINGERPRINT);
+  assert.strictEqual(JSON.stringify(a), JSON.stringify(b));
+});
+
+test('TRAIN_FINGERPRINT erkennt, dass das Spiel die Eingabe uebernommen hat', () => {
+  const { run, window } = openPage('train-barracks-ch96.html', { screen: 'barracks', units: BARRACKS_UNITS });
+  const before = run(scripts.TRAIN_FINGERPRINT);
+  run(scripts.submitTrain({ spear: 50 }));
+  const afterSubmit = run(scripts.TRAIN_FINGERPRINT);
+  // Solange das Feld gefuellt bleibt, hat das Spiel nichts uebernommen.
+  assert.notStrictEqual(JSON.stringify(afterSubmit), JSON.stringify(before));
+  // Das Spiel leert die Felder und ergaenzt die Ausbildungsliste.
+  window.document.querySelector('#spear_0').value = '';
+  const afterAccept = run(scripts.TRAIN_FINGERPRINT);
+  assert.strictEqual(JSON.stringify(afterAccept), JSON.stringify(before));
+});
+
+test('TRAIN_FINGERPRINT erkennt einen neuen Eintrag in der Ausbildungsliste', () => {
+  const { run, window } = openPage('train-barracks-ch96.html', { screen: 'barracks', units: BARRACKS_UNITS });
+  const before = run(scripts.TRAIN_FINGERPRINT);
+  const row = window.document.createElement('tr');
+  row.innerHTML = '<td>50 Speerträger</td><td><a class="btn btn-cancel" href="#">Abbräche</a></td>';
+  window.document.querySelector('.trainqueue_wrap table tbody').appendChild(row);
+  const after = run(scripts.TRAIN_FINGERPRINT);
+  assert.strictEqual(before.queueEntries, 1);
+  assert.strictEqual(after.queueEntries, 2);
+});

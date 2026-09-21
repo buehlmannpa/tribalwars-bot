@@ -49,7 +49,7 @@ async function runBuildJob({ bridge, store, logger, village }) {
 
   const result = await bridge.upgrade(village.id, next.key);
   if (result && result.observed) {
-    logger.info(`${village.name || village.id}: wuerde ${label} auf Stufe ${result.target} in Auftrag geben`);
+    logger.info(`[nur beobachtet, nichts geklickt] ${village.name || village.id}: wuerde ${label} auf Stufe ${result.target} in Auftrag geben`);
     return { ok: true, observed: true, building: next.key, level: result.target };
   }
   if (result && result.ok) {

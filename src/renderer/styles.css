@@ -93,3 +93,12 @@ label.check.big { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: rgba(125,81,42,.10); font-variant-numeric: tabular-nums; }
 .chip.empty { background: transparent; color: var(--muted); }
+
+.banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 20px; font-size: 13px;
+  background: rgba(178,106,0,.14); color: var(--warn);
+  border-bottom: 1px solid var(--line);
+}
+.banner b { color: var(--warn); }
+.banner button { margin-left: auto; }

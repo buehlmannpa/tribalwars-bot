@@ -17,6 +17,7 @@ class Bridge {
     this.win = null;
     this.busy = false;
     this.quitting = false;
+    this.capturedUnconfirmed = false;
   }
 
   get host() {
@@ -160,15 +161,51 @@ class Bridge {
         ? { ok: true, observed: true, building: buildingKey, target: check.target }
         : check;
     }
+
+    const fingerprint = scripts.buildFingerprint(buildingKey);
+    const before = await this.exec(fingerprint);
     const result = await this.exec(scripts.clickBuild(buildingKey));
+    if (!result || !result.ok) return result;
+
+    // Erst wenn sich die Seite wirklich veraendert hat, gilt der Auftrag als
+    // erteilt. Sonst wuerde das Protokoll Erfolge melden, die es nie gab.
+    const check = await this.confirm(fingerprint, before);
+    if (!check.changed) {
+      await this.captureUnconfirmed('bauauftrag');
+      return {
+        ok: false,
+        error: `Ausbau wurde ausgeloest (${result.how}), das Spiel hat aber nichts uebernommen`
+      };
+    }
+    return { ...result, confirmed: true };
+  }
+
+  // Wartet, bis sich der Fingerabdruck der Seite veraendert hat.
+  async confirm(fingerprintScript, before, tries = 8, waitMs = 700) {
+    if (!before || !before.ok) return { changed: true, unchecked: true };
+    const start = JSON.stringify(before);
+    for (let i = 0; i < tries; i += 1) {
+      await sleep(waitMs);
+      const now = await this.exec(fingerprintScript);
+      if (!now || !now.ok) continue;
+      if (JSON.stringify(now) !== start) return { changed: true, after: now };
+    }
+    return { changed: false };
+  }
+
+  // Legt einmal je Sitzung einen Seitenabzug ab, wenn eine Aktion nicht
+  // bestaetigt werden konnte. Damit laesst sich die Ursache nachtraeglich
+  // feststellen, ohne dass sich Dateien anhaeufen.
+  async captureUnconfirmed(label) {
+    if (this.capturedUnconfirmed) return null;
+    this.capturedUnconfirmed = true;
+    const result = await this.capture(`nicht-bestaetigt-${label}`);
     if (result && result.ok) {
-      await sleep(1200 + Math.floor(Math.random() * 1200));
+      this.logger.warn(`Seitenabzug zur Fehlersuche abgelegt: ${result.file}`);
     }
     return result;
   }
 
-  // Es gibt keine gemeinsame Rekrutierungsseite. Kaserne, Stall und Werkstatt
-  // haben je eine eigene Ansicht, darum wird das Gebaeude mitgegeben.
   async readTrain(villageId, building) {
     const nav = await this.navigate(building, villageId);
     if (nav && nav.ok === false) return nav;
@@ -179,11 +216,20 @@ class Bridge {
     if (this.observeOnly) {
       return { ok: true, observed: true, ordered: orders };
     }
+
+    const before = await this.exec(scripts.TRAIN_FINGERPRINT);
     const result = await this.exec(scripts.submitTrain(orders));
-    if (result && result.ok) {
-      await sleep(1200 + Math.floor(Math.random() * 1200));
+    if (!result || !result.ok) return result;
+
+    const check = await this.confirm(scripts.TRAIN_FINGERPRINT, before);
+    if (!check.changed) {
+      await this.captureUnconfirmed('rekrutierung');
+      return {
+        ok: false,
+        error: 'Rekrutierung wurde abgeschickt, das Spiel hat aber nichts uebernommen'
+      };
     }
-    return result;
+    return { ...result, confirmed: true };
   }
 
   // Legt die rohe Seite auf die Platte. Damit lassen sich die Auswahlpfade
