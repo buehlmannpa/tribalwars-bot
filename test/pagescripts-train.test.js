@@ -175,3 +175,19 @@ test('TRAIN_FINGERPRINT erkennt einen neuen Eintrag in der Ausbildungsliste', ()
   assert.strictEqual(before.queueEntries, 1);
   assert.strictEqual(after.queueEntries, 2);
 });
+
+test('READ_TRAIN liest Zahlen auch mit Tausendertrennung', () => {
+  const { run, window } = openPage('train-barracks-ch96.html', { screen: 'barracks', units: BARRACKS_UNITS });
+  const cell = window.document.querySelector('#spear_0').closest('tr').querySelectorAll('td')[2];
+  cell.textContent = "45/3'264";
+  const state = run(scripts.READ_TRAIN);
+  assert.strictEqual(state.units.spear.present, 45);
+  assert.strictEqual(state.units.spear.total, 3264);
+});
+
+test('READ_TRAIN liefert Bestand im Dorf und Gesamtbestand getrennt', () => {
+  const { run } = openPage('train-stable-ch96.html', { screen: 'stable', units: STABLE_UNITS });
+  const state = run(scripts.READ_TRAIN);
+  assert.strictEqual(state.units.spy.present, 0);
+  assert.strictEqual(state.units.spy.total, 440);
+});

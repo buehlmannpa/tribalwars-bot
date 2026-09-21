@@ -29,7 +29,9 @@ Accounts. Der Entscheid liegt bei dir.
 5. Bauplaene abarbeiten, inklusive der Auftraege, die bereits in der
    Bauschleife stehen.
 6. Truppenvorlagen abarbeiten, in Paketen, mit Rohstoffpuffer und Bauernhof
-   Puffer, Vorrang gegenueber dem Bauplan einstellbar.
+   Puffer, Vorrang gegenueber dem Bauplan einstellbar. Massgebend ist der
+   Gesamtbestand des Dorfes, Truppen auf Angriff oder in der Unterstuetzung
+   zaehlen also mit und werden nicht nachbestellt.
 7. Modus nur beobachten, in dem die App alles liest und protokolliert, aber
    nichts im Spiel anruehrt.
 8. Jede Aktion wird nachgewiesen. Nach einem Ausbau oder einer Rekrutierung

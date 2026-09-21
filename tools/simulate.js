@@ -132,6 +132,7 @@ class SimulatedBridge {
       units[unit] = {
         pop: UNIT_BY_KEY[unit] ? UNIT_BY_KEY[unit].pop : 1,
         present: this.v.units[unit] || 0,
+        total: this.v.units[unit] || 0,
         max: affordable,
         disabled: (this.v.levels[building] || 0) === 0
       };

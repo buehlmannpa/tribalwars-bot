@@ -24,6 +24,15 @@ async function runTrainJob({ bridge, store, logger, village }) {
     return { ok: false, reason: `${label}: ${state ? state.error : 'Seite nicht lesbar'}` };
   }
 
+  // Was auf der Seite steht, wird gemerkt. So weiss die App beim naechsten
+  // Durchlauf, welche Gebaeude ueberhaupt noch etwas brauchen.
+  village.units = village.units || {};
+  for (const [unit, info] of Object.entries(state.units)) {
+    const stock = stockOf(info);
+    if (stock !== null) village.units[unit] = stock;
+  }
+  store.save();
+
   const buffer = config.automation.resourceBuffer || {};
   const shortOf = ['wood', 'stone', 'iron'].find((key) => state.resources[key] < (Number(buffer[key]) || 0));
   if (shortOf) {
@@ -42,7 +51,8 @@ async function runTrainJob({ bridge, store, logger, village }) {
     const stillMissing = Object.entries(template).some(([unit, target]) => {
       const info = state.units[unit];
       if (!info || info.disabled) return false;
-      return target - (Number.isFinite(info.present) ? info.present : 0) > 0;
+      const stock = stockOf(info);
+      return stock !== null && target - stock > 0;
     });
     if (stillMissing) {
       return { ok: true, skipped: true, waiting: true, reason: `${label}: Rohstoffe reichen noch nicht fuer eine sinnvolle Bestellung` };
@@ -73,10 +83,32 @@ function pickBuilding(template, village) {
     wanted.push(meta.building);
   }
   const levels = village.levels || null;
-  const available = levels ? wanted.filter((key) => Number(levels[key] || 0) > 0) : wanted;
+  let available = levels ? wanted.filter((key) => Number(levels[key] || 0) > 0) : wanted;
   if (!available.length) return null;
+
+  // Ist der Bestand bekannt, werden Gebaeude bevorzugt, in denen noch etwas
+  // fehlt. Fehlt nirgends etwas, wird trotzdem reihum geschaut, damit die App
+  // Veraenderungen mitbekommt.
+  const known = village.units || null;
+  if (known) {
+    const needed = available.filter((building) => Object.entries(template).some(([unit, target]) => {
+      const meta = UNIT_BY_KEY[unit];
+      return meta && meta.building === building && Number(target) > Number(known[unit] || 0);
+    }));
+    if (needed.length) available = needed;
+  }
+
   const last = available.indexOf(village.lastTrainBuilding);
   return available[(last + 1) % available.length];
+}
+
+// Der Bestand einer Einheit im Dorf, Truppen unterwegs eingerechnet.
+// Liefert null, wenn die Seite keine brauchbare Zahl hergibt.
+function stockOf(info) {
+  if (!info) return null;
+  if (Number.isFinite(info.total)) return info.total;
+  if (Number.isFinite(info.present)) return info.present;
+  return null;
 }
 
 // Waehlt die Einheit mit dem geringsten Fortschritt und ein passendes Paket.
@@ -86,8 +118,13 @@ function chooseOrder({ template, state, freePop, minBatch = 1 }) {
     if (!target) continue;
     const info = state.units[unit];
     if (!info || info.disabled) continue;
-    const present = Number.isFinite(info.present) ? info.present : 0;
-    const missing = target - present;
+    // Massgebend ist der Gesamtbestand des Dorfes, nicht was gerade daheim
+    // steht. Truppen unterwegs zaehlen mit, sonst wuerde die App alles
+    // nachbestellen, was gerade auf einem Angriff oder in der Unterstuetzung
+    // ist. Ist der Bestand nicht lesbar, wird nichts bestellt.
+    const stock = stockOf(info);
+    if (stock === null) continue;
+    const missing = target - stock;
     if (missing <= 0) continue;
     const meta = UNIT_BY_KEY[unit];
     const packet = meta ? meta.packet : 10;
@@ -101,11 +138,11 @@ function chooseOrder({ template, state, freePop, minBatch = 1 }) {
     // Reicht es nicht fuer das gewuenschte Paket, wird erst ab der kleinsten
     // sinnvollen Menge bestellt, sonst wartet der Manager.
     if (amount < desired && amount < minBatch) continue;
-    candidates.push({ unit, amount, progress: present / target });
+    candidates.push({ unit, amount, progress: stock / target });
   }
   if (!candidates.length) return null;
   candidates.sort((a, b) => a.progress - b.progress);
   return candidates[0];
 }
 
-module.exports = { runTrainJob, chooseOrder, pickBuilding };
+module.exports = { runTrainJob, chooseOrder, pickBuilding, stockOf };

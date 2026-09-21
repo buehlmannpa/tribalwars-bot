@@ -229,7 +229,9 @@ const READ_TRAIN = wrap(`
     if (row) {
       var cells = row.querySelectorAll('td');
       for (var i = 0; i < cells.length; i++) {
-        var match = cells[i].textContent.replace(/\\s+/g, '').match(/^(\\d+)\\/(\\d+)$/);
+        // Manche Welten schreiben Tausender mit Punkt oder Hochkomma.
+        var text = cells[i].textContent.replace(/[\\s.'\\u00a0]/g, '');
+        var match = text.match(/^(\\d+)\\/(\\d+)$/);
         if (match) { present = Number(match[1]); total = Number(match[2]); break; }
       }
     }

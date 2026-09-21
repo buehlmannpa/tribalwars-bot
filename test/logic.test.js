@@ -166,3 +166,65 @@ test('isWorldHost erkennt die Startseite als keine Welt', () => {
   assert.strictEqual(isWorldHost('https://www.die-staemme.de'), false);
   assert.strictEqual(isWorldHost(''), false);
 });
+
+const { stockOf } = require('../src/main/jobs/trainJob');
+
+test('chooseOrder zaehlt Truppen mit, die gerade unterwegs sind', () => {
+  // Die Spielseite meldet null daheim und 440 insgesamt, die Vorlage will 400.
+  const order = chooseOrder({
+    template: { spy: 400 },
+    state: { units: { spy: { present: 0, total: 440, pop: 2 } } },
+    freePop: 500,
+    minBatch: 10
+  });
+  assert.strictEqual(order, null);
+});
+
+test('chooseOrder bestellt, wenn der Gesamtbestand unter dem Ziel liegt', () => {
+  const order = chooseOrder({
+    template: { spy: 400 },
+    state: { units: { spy: { present: 0, total: 380, pop: 2, max: 500 } } },
+    freePop: 500,
+    minBatch: 10
+  });
+  assert.strictEqual(order.unit, 'spy');
+  assert.strictEqual(order.amount, 20);
+});
+
+test('chooseOrder bestellt nichts, wenn der Bestand nicht lesbar ist', () => {
+  const order = chooseOrder({
+    template: { spy: 400 },
+    state: { units: { spy: { present: null, total: null, pop: 2, max: 500 } } },
+    freePop: 500,
+    minBatch: 10
+  });
+  assert.strictEqual(order, null);
+});
+
+test('stockOf nimmt den Gesamtbestand vor dem Bestand daheim', () => {
+  assert.strictEqual(stockOf({ present: 0, total: 440 }), 440);
+  assert.strictEqual(stockOf({ present: 12, total: null }), 12);
+  assert.strictEqual(stockOf({ present: null, total: null }), null);
+  assert.strictEqual(stockOf(null), null);
+});
+
+test('pickBuilding bevorzugt Gebaeude, in denen noch etwas fehlt', () => {
+  const template = { spear: 100, light: 100 };
+  const village = {
+    levels: { barracks: 20, stable: 15 },
+    units: { spear: 100, light: 10 },
+    lastTrainBuilding: 'stable'
+  };
+  // In der Kaserne ist das Ziel erreicht, also bleibt der Stall an der Reihe.
+  assert.strictEqual(pickBuilding(template, village), 'stable');
+});
+
+test('pickBuilding schaut reihum, wenn nirgends etwas fehlt', () => {
+  const template = { spear: 100, light: 100 };
+  const village = {
+    levels: { barracks: 20, stable: 15 },
+    units: { spear: 100, light: 100 },
+    lastTrainBuilding: 'barracks'
+  };
+  assert.strictEqual(pickBuilding(template, village), 'stable');
+});
